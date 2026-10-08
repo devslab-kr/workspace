@@ -1,8 +1,10 @@
 # DevsLab Workspace
 
+[소스와 이슈](https://github.com/devslab-kr/workspace) · [공개 배포 절차](docs/releasing.md)
+
 열린 업무 탭, 단축키, 화면 전환 모달을 제공한다. 공통 TypeScript 코어와 Solid·React·Vue·Svelte 어댑터를 구현했다. 앱의 폼·데이터·라우터·권한은 앱이 관리한다.
 
-아직 npm에 공개하지 않은 로컬 구현이다. 예정 이름은 `@devslab/workspace`이며 공개 전에 등록 가능 여부를 확인한다. MIT 라이선스다. DDS는 별도의 source-available 디자인 시스템이다.
+소스는 MIT 라이선스로 공개했다. `@devslab/workspace` 첫 npm 공개 배포를 준비 중이다. DDS는 별도의 source-available 디자인 시스템이다.
 
 ```tsx
 import { Workspace } from '@devslab/workspace/solid';

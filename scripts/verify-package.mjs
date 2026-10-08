@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { mkdtemp, mkdir, readFile, writeFile, access, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, access, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -11,7 +11,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
 const temporary = await mkdtemp(join(tmpdir(), 'workspace-package-verification-'));
-const npmCli = process.env.npm_execpath ?? join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js');
+// Windows ships npm beside node.exe; Unix exposes its CLI through a bin/npm symlink.
+const npmCli = process.env.npm_execpath ?? (process.platform === 'win32'
+  ? join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js')
+  : await realpath(join(dirname(process.execPath), 'npm')));
 const version = name => {
   const value = manifest.devDependencies?.[name];
   assert.ok(value, `Missing build-tool or adapter development dependency: ${name}`);
