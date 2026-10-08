@@ -24,6 +24,7 @@ await mkdir(output, { recursive: true });
 await cp(new URL('docs/assets/brand/', root), new URL('docs/assets/brand/', output), { recursive: true });
 await access(new URL('demo-dist/index.html', root));
 await cp(new URL('demo-dist/', root), new URL('demo/', output), { recursive: true });
+await cp(new URL('demo/geist.LICENSE', root), new URL('demo/geist.LICENSE', output));
 await writeFile(new URL('.nojekyll', output), '');
 const require = createRequire(import.meta.url);
 await cp(require.resolve('@fontsource/geist/files/geist-latin-400-normal.woff2'), new URL('geist.woff2', output));
