@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "project": "workspace",
+  "registryId": "O13",
+  "registrationStatus": "canonical",
+  "guide": "https://devslab.kr/brand/open-source/",
+  "source": {
+    "repository": "https://github.com/devslab-kr/oss-brand",
+    "release": "v0.4.0",
+    "commit": "3870b9ea86f5ccc443d06b49d991592591b110da",
+    "archive": "https://github.com/devslab-kr/oss-brand/releases/download/v0.4.0/workspace.zip",
+    "archiveSha256": "76b046d7e89b36b696b3b64a8a966433b7efdef7ef9efebc886ba2a9e619b99a",
+    "checksumsSha256": "e1b7b4bc1d5a6a17aa847e5620dab90f4e2a6276309682a71405ab4369959a0d"
+  },
+  "approvedPair": {
+    "light": "#1D4ED8",
+    "dark": "#93C5FD"
+  },
+  "route": [
+    "M14 21V15H19V18H24V23H14",
+    "M14 18H19"
+  ],
+  "routeStrokeWidth": 2.4,
+  "aliases": {
+    "project-mark.svg": "glyph-color.svg",
+    "project-mark-dark.svg": "glyph-dark.svg",
+    "project-mark-monochrome.svg": "glyph-monochrome.svg",
+    "project-mark-reversed.svg": "glyph-reversed.svg",
+    "project-lockup.svg": "lockup-endorsed.svg",
+    "icon-16.png": "icons/icon-16.png",
+    "icon-32.png": "icons/icon-32.png",
+    "icon-180.png": "icons/icon-180.png",
+    "icon-192.png": "icons/icon-192.png",
+    "icon-512.png": "icons/icon-512.png"
+  }
+}

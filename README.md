@@ -1,10 +1,33 @@
-# DevsLab Workspace
+# Workspace
 
-[Source and issues](https://github.com/devslab-kr/workspace) · [Korean guide](README.ko.md) · [Release workflow](docs/releasing.md)
+<p align="center">
+  <a href="https://devslab.kr/brand/open-source/"><img src="docs/assets/brand/readme-header.png" alt="Workspace — retained tabs and screen switching. Open source by DevsLab." width="100%"></a>
+</p>
+
+<!-- publisher:start -->
+Open source by [데브스랩(DevsLab)](https://devslab.kr/).
+<!-- publisher:end -->
+
+[![npm](https://img.shields.io/npm/v/%40devslab%2Fworkspace)](https://www.npmjs.com/package/@devslab/workspace)
+[![CI](https://github.com/devslab-kr/workspace/actions/workflows/verify.yml/badge.svg)](https://github.com/devslab-kr/workspace/actions/workflows/verify.yml)
+![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178C6?logo=typescript&logoColor=white)
+[![License](https://img.shields.io/badge/License-Apache--2.0-blue)](./LICENSE)
+
+**English** · [한국어](README.ko.md) · [Documentation](docs/README.md) · [OSS brand guide](https://devslab.kr/brand/open-source/)
 
 Retained work tabs, scoped shortcuts and an open-screen switcher. A framework-independent core with native Solid, React, Vue and Svelte adapters. Your pages keep their own forms, data, router, authorization and subscriptions.
 
-The source is public under MIT. The first `@devslab/workspace` npm release is being prepared; DDS is a separate source-available design system.
+Opening a registered screen creates its tab. The open-screen switcher is included; you supply the screen components and keep their business logic. Workspace 0.1.1 and later use Apache-2.0; the published 0.1.0 retains its original MIT license. DDS is a separate source-available design system.
+
+## Install
+
+```sh
+npm install @devslab/workspace
+# Install peers for the adapter you use, for example Solid:
+npm install solid-js @ark-ui/solid@5.39.3
+```
+
+## Usage
 
 ```tsx
 import { Workspace } from '@devslab/workspace/solid';
@@ -98,3 +121,18 @@ import { RetainedPanels } from '@devslab/workspace/solid';
 
 Keep each item object stable to preserve its component owner. Removing or replacing that object disposes its page; selecting another item retains it. This is a separate integration surface from the fixed `Workspace` screen registry and supplies no router, authorization store or data cache. Gate page-owned portals with the app's activity context. Native attributes are forwarded through `panelProps`; activity always controls `hidden` and `inert`.
 `controller.cancelPending()` invalidates outstanding activation/close guards without changing retained tabs, active page, or switcher state. The URL adapter calls it on every new URL intent, including unmapped, unknown, and tab-limited destinations, so an older guard cannot restore an obsolete URL. Switcher-only changes do not push history entries.
+
+## Contributing
+
+Issues and PRs are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, verification and documentation conventions. Release maintainers should follow [the OIDC release guide](docs/releasing.md).
+
+## Family
+
+- [kokey](https://github.com/devslab-kr/kokey) — keyboard-layout conversion for business forms.
+- [numkey](https://github.com/devslab-kr/numkey) — caret-safe numeric inputs.
+- [DDS](https://github.com/devslab-kr/dds) — a separately licensed design system, with an optional Workspace token mapping.
+- [More open source from DevsLab](https://github.com/devslab-kr).
+
+## License
+
+[Apache-2.0](LICENSE) © [DevsLab](https://devslab.kr/).

@@ -1,10 +1,33 @@
-# DevsLab Workspace
+# Workspace
 
-[소스와 이슈](https://github.com/devslab-kr/workspace) · [공개 배포 절차](docs/releasing.md)
+<p align="center">
+  <a href="https://devslab.kr/brand/open-source/"><img src="docs/assets/brand/readme-header.png" alt="Workspace — 열린 업무 탭과 화면 전환. Open source by DevsLab." width="100%"></a>
+</p>
+
+<!-- publisher:start -->
+Open source by [데브스랩(DevsLab)](https://devslab.kr/).
+<!-- publisher:end -->
+
+[![npm](https://img.shields.io/npm/v/%40devslab%2Fworkspace)](https://www.npmjs.com/package/@devslab/workspace)
+[![CI](https://github.com/devslab-kr/workspace/actions/workflows/verify.yml/badge.svg)](https://github.com/devslab-kr/workspace/actions/workflows/verify.yml)
+![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178C6?logo=typescript&logoColor=white)
+[![License](https://img.shields.io/badge/License-Apache--2.0-blue)](./LICENSE)
+
+[English](README.md) · **한국어** · [문서](docs/README.md) · [OSS 브랜드 가이드](https://devslab.kr/brand/open-source/)
 
 열린 업무 탭, 단축키, 화면 전환 모달을 제공한다. 공통 TypeScript 코어와 Solid·React·Vue·Svelte 어댑터를 구현했다. 앱의 폼·데이터·라우터·권한은 앱이 관리한다.
 
-소스는 MIT 라이선스로 공개했다. `@devslab/workspace` 첫 npm 공개 배포를 준비 중이다. DDS는 별도의 source-available 디자인 시스템이다.
+등록한 화면을 열면 탭이 자동으로 생성되고, 열린 화면 전환 모달도 함께 제공한다. 화면 컴포넌트와 업무 로직은 앱에서 연결한다. `@devslab/workspace`는 0.1.1부터 Apache-2.0 라이선스를 사용하며, 기존 공개 버전 0.1.0은 원래 MIT 라이선스로 유지된다. DDS는 별도의 source-available 디자인 시스템이다.
+
+## 설치
+
+```sh
+npm install @devslab/workspace
+# 사용할 어댑터의 peer 패키지만 설치한다. Solid 예시:
+npm install solid-js @ark-ui/solid@5.39.3
+```
+
+## 사용법
 
 ```tsx
 import { Workspace } from '@devslab/workspace/solid';
@@ -34,3 +57,18 @@ DDS를 사용하면 라이선스가 적용된 DDS 토큰과 `@devslab/workspace/
 선택 API `createHistoryWorkspace(options, browserHistory(window))`가 URL 진입·뒤로가기·앞으로가기를 연결한다. screenFromUrl/urlForScreen을 제공하고 controller/ready/dispose를 사용한다. 거절된 뒤로가기는 마지막 허용 URL로 replace하며 새 항목을 추가하지 않는다. 앱에서 화면을 고르면 변경된 URL만 push한다. dispose는 리스너와 화면을 정리한다. 동기 History 어댑터이며 TanStack 등의 비동기 loader·라우터 취소는 앱에서 연결한다.
 
 검증 명령과 프레임워크별 사용법은 [영문 가이드](README.md), [React/Vue](docs/react-vue.md), [Svelte](src/svelte/README.md)에 있다. 공개·배포·임시 체크아웃 정리는 검증된 변경을 통합한 뒤 진행한다.
+
+## 기여
+
+개발 환경과 검증 절차는 [CONTRIBUTING.md](CONTRIBUTING.md)에 있다. 릴리스 담당자는 [OIDC 배포 안내](docs/releasing.md)를 따른다.
+
+## 관련 프로젝트
+
+- [kokey](https://github.com/devslab-kr/kokey) — 업무 폼의 키보드 자판 변환.
+- [numkey](https://github.com/devslab-kr/numkey) — 커서 위치를 유지하는 숫자 입력.
+- [DDS](https://github.com/devslab-kr/dds) — 별도 라이선스의 디자인 시스템. Workspace 토큰 연결 파일을 선택적으로 사용할 수 있다.
+- [DevsLab 오픈소스](https://github.com/devslab-kr).
+
+## 라이선스
+
+[Apache-2.0](LICENSE) © [DevsLab](https://devslab.kr/).

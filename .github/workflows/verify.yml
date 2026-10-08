@@ -24,7 +24,12 @@ jobs:
           cache: npm
       - name: Check supported Node runtime
         run: node -e "const [major, minor] = process.versions.node.split('.').map(Number); if (major !== 24 || minor < 15) throw new Error('Node 24.15 or newer in the 24.x line is required');"
+      - run: node tools/brand/generate.mjs --check
       - run: npm ci
+      - run: npm ci --prefix tools/publisher --ignore-scripts
+      - run: npm run check --prefix tools/publisher
       - run: npx playwright install --with-deps chromium
       - run: npm run verify
       - run: node scripts/verify-package.mjs
+      - run: npm ci --prefix tools/docs --ignore-scripts
+      - run: npm run build --prefix tools/docs
