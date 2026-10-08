@@ -13,8 +13,11 @@ test('DDS token mapping themes retained pages and the body-portalled switcher', 
     --dds-radius-xl:16px; --dds-elevation-3:0 12px 32px #0003;
     --dds-font-family-sans:system-ui,sans-serif;
   }\n${readFileSync(new URL('../src/dds.css', import.meta.url), 'utf8').replace(':root{', '.demo-shell[data-theme],html[data-demo-theme] .workspace-switcher{')}` });
-  await expect(page.getByRole('tab', { name: 'Orders' })).toHaveCSS('background-color', 'rgb(6, 182, 212)');
-  await expect(page.getByRole('tab', { name: 'Orders' })).toHaveCSS('color', 'rgb(9, 9, 11)');
+  await expect(page.getByRole('tab', { name: 'Orders' })).toHaveCSS('background-color', 'rgb(24, 24, 27)');
+  await expect(page.getByRole('tab', { name: 'Orders' })).toHaveCSS('color', 'rgb(6, 182, 212)');
+  await expect(page.getByRole('tab', { name: 'Orders' })).toHaveCSS('border-bottom-color', 'rgb(6, 182, 212)');
+  await expect(page.getByRole('button', { name: 'Close Orders', exact: true })).toHaveCSS('background-color', 'rgb(24, 24, 27)');
+  await expect(page.getByRole('button', { name: 'Close Orders', exact: true })).toHaveCSS('border-bottom-color', 'rgb(6, 182, 212)');
   await page.getByRole('button', { name: 'Open screens', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCSS('background-color', 'rgb(24, 24, 27)');
   await expect(page.getByRole('dialog')).toHaveCSS('color', 'rgb(250, 250, 250)');

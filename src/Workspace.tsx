@@ -134,7 +134,7 @@ export function WorkspaceTab(props: ButtonPartProps & { id: string }) {
 }
 export function WorkspaceCloseButton(props: ButtonPartProps & { id: string }) {
   const [local, rest] = splitProps(props, ['id', 'children', 'class', 'onClick', 'asChild']);
-  const c = useParts(); return <ark.button {...rest} type="button" asChild={childAdapter(local.asChild, props.ref)} data-workspace-part="close" class={local.class ?? c.cls('close')} aria-label={c.labels().close(c.screen(local.id).title)} onClick={event => { callHandler(local.onClick, event); if (!event.defaultPrevented) void c.run(c.api.close(local.id), true); }}>{local.children ?? '×'}</ark.button>;
+  const c = useParts(); return <ark.button {...rest} type="button" asChild={childAdapter(local.asChild, props.ref)} data-workspace-part="close" data-active={c.state().activeId === local.id} class={local.class ?? c.cls('close')} aria-label={c.labels().close(c.screen(local.id).title)} onClick={event => { callHandler(local.onClick, event); if (!event.defaultPrevented) void c.run(c.api.close(local.id), true); }}>{local.children ?? '×'}</ark.button>;
 }
 export function WorkspacePanels() {
   const c = useParts(); return <Show when={c.state().tabs.length} fallback={c.props.slots?.empty?.() ?? <p>{c.labels().empty}</p>}><For each={c.state().tabs}>{tab =>
