@@ -11,3 +11,17 @@
 html[data-demo-theme=dark] .workspace-switcher{--ws-surface:#18181b;--ws-text:#fafafa;--ws-border:#3f3f46;--ws-accent:#93c5fd;--ws-focus:#93c5fd;color-scheme:dark}
 
 .workspace-overlay{--ws-overlay:#09090bb3}
+
+/* Keep each tab and its accessible sibling close button in one visual shape.
+   This demo has three screen slots; selectors pair their grid positions. */
+.workspace-tabs{column-gap:0;row-gap:0}
+.workspace [role=tab]{height:40px;min-height:40px;border-inline-end:0;border-radius:6px 0 0 6px}
+.workspace .workspace-close{height:40px;min-height:40px;width:32px;border-inline-start:0;margin-inline-end:8px;border-radius:0 6px 6px 0!important;display:grid;place-items:center}
+.workspace [role=tab][aria-selected=true]{border-color:var(--ws-accent)}
+.workspace-tabs:has([role=tab]:nth-of-type(1)[aria-selected=true])>.workspace-close:nth-of-type(1),
+.workspace-tabs:has([role=tab]:nth-of-type(2)[aria-selected=true])>.workspace-close:nth-of-type(2),
+.workspace-tabs:has([role=tab]:nth-of-type(3)[aria-selected=true])>.workspace-close:nth-of-type(3){background:var(--ws-accent);color:var(--ws-on-accent);border-color:var(--ws-accent)}
+.workspace .workspace-close:hover{filter:brightness(.94)}
+.workspace .screen-switcher-icon{width:40px;height:40px;flex:none;padding:9px;display:grid;place-items:center;align-self:center}
+.workspace .screen-switcher-icon:hover{background:var(--soft);color:var(--ws-accent)}
+@media(max-width:700px){.workspace-toolbar{flex-direction:row;align-items:center}.workspace .screen-switcher-icon{align-self:center}.workspace-tabs{min-width:0}}
