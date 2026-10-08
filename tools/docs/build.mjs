@@ -11,6 +11,7 @@ const pages = new Map([
   ['README.md', ['index.html', 'Workspace', 'en']],
   ['README.ko.md', ['index.ko.html', 'Workspace', 'ko']],
   ['docs/README.md', ['docs/index.html', 'Documentation', 'en']],
+  ['docs/solid.md', ['docs/solid.html', 'SolidJS', 'en']],
   ['docs/react-vue.md', ['docs/react-vue.html', 'React and Vue', 'en']],
   ['src/svelte/README.md', ['docs/svelte.html', 'Svelte', 'en']],
   ['docs/brand.md', ['docs/brand.html', 'Brand guide', 'en']],
@@ -23,6 +24,7 @@ await mkdir(output, { recursive: true });
 await cp(new URL('docs/assets/brand/', root), new URL('docs/assets/brand/', output), { recursive: true });
 await access(new URL('demo-dist/index.html', root));
 await cp(new URL('demo-dist/', root), new URL('demo/', output), { recursive: true });
+await cp(new URL('demo/geist.LICENSE', root), new URL('demo/geist.LICENSE', output));
 await writeFile(new URL('.nojekyll', output), '');
 const require = createRequire(import.meta.url);
 await cp(require.resolve('@fontsource/geist/files/geist-latin-400-normal.woff2'), new URL('geist.woff2', output));
@@ -50,7 +52,7 @@ for (const [source, [destination, title, lang]] of pages) {
   }});
   const prefix = posix.relative(posix.dirname(destination), '.') || '.';
   const local = path => `${prefix}/${path}`;
-  const navItems = [['index.html','Overview'],['docs/index.html','Guides'],['docs/react-vue.html','React / Vue'],['docs/svelte.html','Svelte'],['docs/brand.html','Brand'],['docs/releasing.html','Releases'],['contributing.html','Contributing'],['changelog.html','Changelog']];
+  const navItems = [['index.html','Overview'],['docs/index.html','Guides'],['docs/solid.html','SolidJS'],['docs/react-vue.html','React / Vue'],['docs/svelte.html','Svelte'],['docs/brand.html','Brand'],['docs/releasing.html','Releases'],['contributing.html','Contributing'],['changelog.html','Changelog']];
   const sidebar = navItems.map(([path,label]) => `<a href="${local(path)}"${destination===path?' aria-current="page"':''}>${label}</a>`).join('');
   const html = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · DevsLab Workspace</title><meta name="description" content="Retained workspace tabs, keyboard shortcuts and open-screen switching for Solid, React, Vue and Svelte."><link rel="canonical" href="https://devslab-kr.github.io/workspace/${destination==='index.html'?'':destination}"><link rel="stylesheet" href="${local('style.css')}"><link rel="icon" href="${local('docs/assets/brand/favicon.svg')}"></head><body><a class="skip" href="#content">Skip to content</a><header><a class="brand" href="${local('index.html')}"><img class="light-mark" src="${local('docs/assets/brand/glyph-color.svg')}" alt=""><img class="dark-mark" src="${local('docs/assets/brand/glyph-dark.svg')}" alt="">Workspace</a><nav aria-label="Main"><a href="${local('demo/')}">Live demo</a><a href="${local(lang==='ko'?'index.html':'index.ko.html')}">${lang==='ko'?'English':'한국어'}</a><a href="https://github.com/devslab-kr/workspace">GitHub</a><button id="theme" type="button">Toggle theme</button></nav></header><div class="layout"><aside aria-label="Documentation">${sidebar}</aside><main id="content">${markdown.parse(text)}</main></div><footer>Open source by ${renderPublisherHtml(DEVSLAB_PUBLISHER)} · Apache-2.0 since 0.1.1 · <a href="https://github.com/devslab-kr/workspace/blob/main/${source}">Edit this page</a></footer><script>const saved=localStorage.getItem('workspace-docs-theme');if(saved==='light'||saved==='dark')document.documentElement.dataset.theme=saved;document.getElementById('theme').addEventListener('click',()=>{const dark=document.documentElement.dataset.theme?document.documentElement.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;const next=dark?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('workspace-docs-theme',next)});</script></body></html>`;
   await mkdir(new URL(posix.dirname(destination)+'/', output), { recursive: true });

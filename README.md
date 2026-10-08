@@ -100,7 +100,7 @@ Default screens open after mounting, so default SSR output is empty. Preopen a r
 
 ## Verification
 
-`npm run typecheck`, `npm run check:svelte`, `npm test`, `npm run build`, `npm run build:demo`, `npm run test:e2e`, then `node scripts/verify-package.mjs`. Svelte fixtures have separate browser/SSR runners under `tests/svelte/`. Package installation verification checks optional peers, installed exports and Solid browser hydration; source imports alone are insufficient. [Native React/Vue examples](docs/react-vue.md), [Svelte guide](src/svelte/README.md), [Korean guide](README.ko.md).
+`npm run typecheck`, `npm run check:svelte`, `npm test`, `npm run build`, `npm run build:demo`, `npm run test:e2e`, then `node scripts/verify-package.mjs`. Svelte fixtures have separate browser/SSR runners under `tests/svelte/`. Package installation verification checks optional peers, installed exports and Solid browser hydration; source imports alone are insufficient. [SolidJS guide](docs/solid.md), [Native React/Vue examples](docs/react-vue.md), [Svelte guide](src/svelte/README.md), [Korean guide](README.ko.md).
 
 ### Externally owned dynamic pages (Solid)
 
