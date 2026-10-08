@@ -33,6 +33,7 @@
     "dist",
     "README.md",
     "README.ko.md",
+    "docs/solid.md",
     "docs/react-vue.md",
     "src/svelte/README.md",
     "NOTICE",

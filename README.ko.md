@@ -56,7 +56,7 @@ DDS를 사용하면 라이선스가 적용된 DDS 토큰과 `@devslab/workspace/
 
 선택 API `createHistoryWorkspace(options, browserHistory(window))`가 URL 진입·뒤로가기·앞으로가기를 연결한다. screenFromUrl/urlForScreen을 제공하고 controller/ready/dispose를 사용한다. 거절된 뒤로가기는 마지막 허용 URL로 replace하며 새 항목을 추가하지 않는다. 앱에서 화면을 고르면 변경된 URL만 push한다. dispose는 리스너와 화면을 정리한다. 동기 History 어댑터이며 TanStack 등의 비동기 loader·라우터 취소는 앱에서 연결한다.
 
-검증 명령과 프레임워크별 사용법은 [영문 가이드](README.md), [React/Vue](docs/react-vue.md), [Svelte](src/svelte/README.md)에 있다. 공개·배포·임시 체크아웃 정리는 검증된 변경을 통합한 뒤 진행한다.
+검증 명령과 프레임워크별 사용법은 [영문 가이드](README.md), [SolidJS](docs/solid.md), [React/Vue](docs/react-vue.md), [Svelte](src/svelte/README.md)에 있다. 공개·배포·임시 체크아웃 정리는 검증된 변경을 통합한 뒤 진행한다.
 
 ## 기여
 
