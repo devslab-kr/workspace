@@ -1,6 +1,6 @@
 import { createSignal, createEffect, For } from 'solid-js';
 import { render } from 'solid-js/web';
-import { Workspace, useActiveEffect, useWorkspacePage } from '../src/solid';
+import { WorkspaceProvider, WorkspaceMenu, WorkspaceTabList, WorkspaceSwitcherTrigger, WorkspaceStatus, WorkspacePanels, WorkspaceSwitcher, useActiveEffect, useWorkspacePage } from '../src/solid';
 import '../src/style.css';
 import './demo.css';
 
@@ -39,14 +39,20 @@ function Demo() {
   return <div class="demo-shell" data-theme={dark() ? 'dark' : 'light'}>
     <header class="demo-header"><a class="demo-brand" href="../"><img src={`../docs/assets/brand/${dark() ? 'glyph-dark' : 'glyph-color'}.svg`} alt="" />Workspace</a><nav aria-label="Demo navigation"><a href="../docs/solid.html">SolidJS guide</a><a href="https://github.com/devslab-kr/workspace">GitHub</a><button type="button" onClick={() => setDark(value => !value)}>{dark() ? 'Light theme' : 'Dark theme'}</button></nav></header>
     <main class="demo-main"><div class="demo-intro"><div><h2>Your work stays open.</h2><p>Three business screens. One workspace. Switch tabs without losing your place.</p></div><a href="https://github.com/devslab-kr/workspace/blob/main/demo/main.tsx">View the SolidJS source</a></div><div class="workspace-frame">
-    <Workspace screens={[{ id: 'orders', title: 'Orders', component: Orders }, { id: 'notes', title: 'Notes', component: Notes }, { id: 'counter', title: 'Activity', component: Counter }]}
+    <WorkspaceProvider screens={[{ id: 'orders', title: 'Orders', component: Orders }, { id: 'notes', title: 'Notes', component: Notes }, { id: 'counter', title: 'Activity', component: Counter }]}
       defaultScreen="orders" maxTabs={3} labels={{ switcher: 'Open screens', tabs: 'Choose a screen to continue' }}
       beforeClose={id => {
         if (id !== 'notes' || !dirty()) return true;
         const accepted = window.confirm('Discard unsaved notes?');
         if (accepted) setDirty(false);
         return accepted;
-      }} slots={{ preview: screen => <div class="screen-preview"><div class="preview-tabs"><i /><i /><i /></div><div class="preview-lines"><i /><i /><i /></div><span>{screen.title === 'Orders' ? 'Search & selection' : screen.title === 'Notes' ? 'Retained draft' : 'Active-page lifecycle'}</span></div> }} />
+      }} slots={{ preview: screen => <div class="screen-preview"><div class="preview-tabs"><i /><i /><i /></div><div class="preview-lines"><i /><i /><i /></div><span>{screen.title === 'Orders' ? 'Search & selection' : screen.title === 'Notes' ? 'Retained draft' : 'Active-page lifecycle'}</span></div> }}>
+      <WorkspaceMenu />
+      <div class="workspace-toolbar"><WorkspaceSwitcherTrigger class="screen-switcher-icon" aria-label="Open screens" title="Open screens · 열린 화면 (Alt+Q)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.2" /><rect x="14" y="3" width="7" height="7" rx="1.2" /><rect x="3" y="14" width="7" height="7" rx="1.2" /><rect x="14" y="14" width="7" height="7" rx="1.2" /></svg>
+      </WorkspaceSwitcherTrigger><WorkspaceTabList /></div>
+      <WorkspaceStatus /><WorkspacePanels /><WorkspaceSwitcher />
+    </WorkspaceProvider>
     </div><div class="demo-help"><p><strong>Try it:</strong> write a note, select an order, then use Open screens to move between them.</p><p><kbd>Alt</kbd> + <kbd>Q</kbd> opens the switcher · <kbd>Alt</kbd> + <kbd>1–3</kbd> selects a tab</p></div></main><footer class="demo-footer"><span>Open source by <a href="https://devslab.kr/">DevsLab</a></span><span>SolidJS demo · Sample data stays in this session</span></footer>
   </div>;
 }

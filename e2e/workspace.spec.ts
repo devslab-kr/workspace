@@ -2,6 +2,18 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 test('order filters and selection survive switching, with both demo themes accessible', async ({ page }) => {
   await page.goto('/');
+  const tab = page.getByRole('tab', { name: 'Orders', exact: true });
+  const close = page.getByRole('button', { name: 'Close Orders', exact: true });
+  const tabBox = await tab.boundingBox();
+  const closeBox = await close.boundingBox();
+  expect(tabBox).not.toBeNull(); expect(closeBox).not.toBeNull();
+  expect(closeBox!.x).toBeCloseTo(tabBox!.x + tabBox!.width, 1);
+  expect(closeBox!.height).toBeCloseTo(tabBox!.height, 1);
+  const tabColor = await tab.evaluate(element => getComputedStyle(element).backgroundColor);
+  await expect(close).toHaveCSS('background-color', tabColor);
+  const switcher = page.getByRole('button', { name: 'Open screens', exact: true });
+  await expect(switcher).toHaveText('');
+  await expect(switcher).toHaveAttribute('title', /열린 화면/);
   await page.getByLabel('Find an order').fill('Northline');
   await page.getByLabel('Select WS-1042').check();
   await page.getByRole('navigation', { name: 'Screens', exact: true }).getByRole('button', { name: 'Notes', exact: true }).click();
