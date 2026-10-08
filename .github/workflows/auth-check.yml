@@ -1,0 +1,27 @@
+name: Check npm publication identity
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.x'
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Verify inherited publication token without publishing
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "NPM_TOKEN is unavailable to this repository. An npm administrator must grant the repository access or configure a trusted publisher."
+            exit 1
+          fi
+          npm whoami

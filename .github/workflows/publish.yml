@@ -1,0 +1,63 @@
+name: Publish Workspace to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version matching package.json
+        required: true
+        default: '0.1.0'
+      publish:
+        description: Publish after all verification passes (false runs verification only)
+        type: boolean
+        default: false
+      authentication:
+        description: Prefer trusted publishing; token is available for initial publication
+        type: choice
+        options: [trusted, token]
+        default: trusted
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: workspace-npm-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.x'
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Check version and publication branch
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          PUBLISH_REQUESTED: ${{ inputs.publish }}
+        run: |
+          node -e "const p=require('./package.json'); if(p.name!=='@devslab/workspace'||p.private||p.version!==process.env.RELEASE_VERSION) throw new Error('Publication metadata/version mismatch'); const [major,minor]=process.versions.node.split('.').map(Number); if(major!==24||minor<15) throw new Error('Node 24.15+ required'); if(process.env.PUBLISH_REQUESTED==='true'&&process.env.GITHUB_REF!=='refs/heads/main') throw new Error('Publish only from main');"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run verify
+      - run: node scripts/verify-package.mjs
+      - name: Inspect publication contents
+        run: npm publish --dry-run --access public
+      - name: Publish with trusted publisher
+        if: inputs.publish && inputs.authentication == 'trusted'
+        run: npm publish --access public --provenance
+      - name: Publish with initial publication token
+        if: inputs.publish && inputs.authentication == 'token'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "NPM_TOKEN is unavailable. Grant this repository access or configure npm trusted publishing."
+            exit 1
+          fi
+          npm publish --access public --provenance

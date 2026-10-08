@@ -1,8 +1,10 @@
 # DevsLab Workspace
 
+[Source and issues](https://github.com/devslab-kr/workspace) · [Korean guide](README.ko.md) · [Release workflow](docs/releasing.md)
+
 Retained work tabs, scoped shortcuts and an open-screen switcher. A framework-independent core with native Solid, React, Vue and Svelte adapters. Your pages keep their own forms, data, router, authorization and subscriptions.
 
-Local implementation; no npm release has been published. `@devslab/workspace` is the intended name, subject to registry checks before release. MIT; DDS is a separate source-available design system.
+The source is public under MIT. The first `@devslab/workspace` npm release is being prepared; DDS is a separate source-available design system.
 
 ```tsx
 import { Workspace } from '@devslab/workspace/solid';
