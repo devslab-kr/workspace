@@ -47,7 +47,7 @@ function Demo() {
         if (accepted) setDirty(false);
         return accepted;
       }} slots={{ preview: screen => <div class="screen-preview"><div class="preview-tabs"><i /><i /><i /></div><div class="preview-lines"><i /><i /><i /></div><span>{screen.title === 'Orders' ? 'Search & selection' : screen.title === 'Notes' ? 'Retained draft' : 'Active-page lifecycle'}</span></div> }} />
-    </div><div class="demo-help"><p><strong>Try it:</strong> write a note, select an order, then use Open screens to move between them.</p><p><kbd>Alt</kbd> + <kbd>Q</kbd> opens the switcher · <kbd>Alt</kbd> + <kbd>1–3</kbd> selects a tab</p></div></main><footer class="demo-footer">Open source by <a href="https://devslab.kr/">DevsLab</a><span>SolidJS demo · Sample data stays in this session</span></footer>
+    </div><div class="demo-help"><p><strong>Try it:</strong> write a note, select an order, then use Open screens to move between them.</p><p><kbd>Alt</kbd> + <kbd>Q</kbd> opens the switcher · <kbd>Alt</kbd> + <kbd>1–3</kbd> selects a tab</p></div></main><footer class="demo-footer"><span>Open source by <a href="https://devslab.kr/">DevsLab</a></span><span>SolidJS demo · Sample data stays in this session</span></footer>
   </div>;
 }
 render(() => <Demo />, document.getElementById('app')!);
