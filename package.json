@@ -24,6 +24,8 @@
     },
     "./solid": {
       "types": "./dist/solid.d.ts",
+      "worker": "./dist/solid-server.js",
+      "workerd": "./dist/solid-server.js",
       "node": "./dist/solid-server.js",
       "browser": "./dist/solid.js",
       "default": "./dist/solid.js"

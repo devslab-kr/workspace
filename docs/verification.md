@@ -9,6 +9,8 @@ Verified on 2026-10-08 before consumer migration. The package remains private an
 - Demo build passed.
 - `node scripts/verify-package.mjs`: clean packed core-only installation without framework/Ark dependencies; selected React/Vue/Solid/Svelte installations and SSR; Solid Chromium hydration preserving DOM nodes and accessibility IDs; compiled packaged Svelte output. All passed.
 
+The first actual FM Worker run exposed the Solid subpath selecting its browser build under Worker conditions. Explicit `worker`/`workerd` server exports were added, with packed conditional-resolution and retained-page server-rendering regressions. Both conditional checks passed; the FM Worker run is rechecked separately in its consumer QA record.
+
 Reproduce with `npm ci`, install Playwright Chromium, then `npm run verify` and `node scripts/verify-package.mjs`. The CI runtime uses Node 24.15+ to satisfy development-tool engine requirements. Local checks ran on the existing Node 24.12 runtime; the jsdom engine warning was visible.
 
 The synchronous history adapter is optional; asynchronous router loaders remain app-owned. Fixed screen registries are construction-time. Solid `RetainedPanels` supports an app-owned dynamic authorized list without adopting the library controller. Next.js, Nuxt and SvelteKit production integration and external publication have not been verified here.

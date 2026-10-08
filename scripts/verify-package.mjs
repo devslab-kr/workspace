@@ -194,6 +194,18 @@ try {
 
   console.log('Checking selected Solid installation, SSR and browser hydration');
   const solid = await consumer('solid', ['solid-js', '@ark-ui/solid', 'vite', 'vite-plugin-solid']);
+  for (const condition of ['worker', 'workerd']) {
+    await command(process.execPath, [`--conditions=${condition}`, '--input-type=module', '--eval', `
+      import assert from 'node:assert/strict';
+      import { createComponent } from 'solid-js';
+      import { renderToString } from 'solid-js/web';
+      import { RetainedPanels } from '@devslab/workspace/solid';
+      assert.ok(import.meta.resolve('@devslab/workspace/solid').endsWith('/solid-server.js'));
+      const html = renderToString(() => createComponent(RetainedPanels, { items: [{id:'page'}], active: () => true, children: () => 'WORKER_RETAINED_PAGE' }));
+      assert.match(html, /WORKER_RETAINED_PAGE/);
+    `], solid);
+  }
+  console.log('Packed Solid worker/workerd conditions select the server build and render safely');
   await runConsumer(solid, verifySolid, [pathToFileURL(createRequire(import.meta.url).resolve('@playwright/test')).href]);
 
   console.log('Checking selected Svelte installation and compiled packed SSR');
