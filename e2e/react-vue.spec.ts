@@ -11,6 +11,14 @@ for (const framework of ['react', 'vue']) {
     await expect(page.getByRole('tab', { name: 'Beta' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('button', { name: 'Close Alpha', exact: true })).toHaveAttribute('data-active', 'false');
     await expect(page.getByRole('button', { name: 'Close Beta', exact: true })).toHaveAttribute('data-active', 'true');
+    const alphaBox = await page.getByRole('tab', { name: 'Alpha' }).boundingBox();
+    const closeAlphaBox = await page.getByRole('button', { name: 'Close Alpha', exact: true }).boundingBox();
+    const betaBox = await page.getByRole('tab', { name: 'Beta' }).boundingBox();
+    const switcherBox = await page.getByRole('button', { name: 'Switch screens', exact: true }).boundingBox();
+    expect(alphaBox!.x).toBeCloseTo(switcherBox!.x + switcherBox!.width, 1);
+    expect(closeAlphaBox!.x).toBeCloseTo(alphaBox!.x + alphaBox!.width, 1);
+    expect(betaBox!.x).toBeCloseTo(closeAlphaBox!.x + closeAlphaBox!.width, 1);
+    expect(betaBox!.y).toBeCloseTo(switcherBox!.y, 1);
     const inactive = page.locator('[data-workspace-part="panel"][hidden]'); await expect(inactive).toHaveAttribute('inert', '');
     await page.getByRole('tab', { name: 'Alpha' }).click();
     await expect(page.getByRole('textbox')).toHaveValue('retained work');
