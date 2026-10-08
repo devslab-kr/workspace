@@ -87,7 +87,7 @@ async function verifySolid(solid, playwrightPath) {
   await server.listen();
   const address = server.httpServer.address();
   const playwright = await import(playwrightPath);
-  const { chromium } = playwright.default ?? playwright;
+  const { chromium, expect } = playwright.default ?? playwright;
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   const errors = []; page.on('pageerror', error => errors.push(error.message));
@@ -105,10 +105,15 @@ async function verifySolid(solid, playwrightPath) {
   assert.deepEqual(errors, [], 'Browser hydration errors');
   assert.ok(hydration.root && hydration.tab && hydration.panel && hydration.input, 'Hydration replaced server-rendered DOM');
   assert.deepEqual(hydration.ids, hydration.before, 'Hydration changed accessibility IDs');
-  await page.getByRole('button', { name: 'Switch screens', exact: true }).click();
-  await page.getByRole('dialog').waitFor();
+  const switcherTrigger = page.getByRole('button', { name: 'Switch screens', exact: true });
+  await switcherTrigger.click();
+  const dialog = page.getByRole('dialog');
+  await dialog.waitFor();
+  // Ark registers focus/dismissal in deferred effects; visibility alone is not readiness.
+  await expect(dialog.getByRole('button', { name: 'Orders', exact: true })).toBeFocused();
   await page.keyboard.press('Escape');
-  await page.getByRole('dialog').waitFor({ state: 'hidden' });
+  await dialog.waitFor({ state: 'hidden' });
+  await expect(switcherTrigger).toBeFocused();
   await page.getByRole('button', { name: 'Close Orders', exact: true }).click();
   await page.getByRole('tab').waitFor({ state: 'detached' });
   assert.deepEqual(errors, [], 'Post-hydration interaction errors');
