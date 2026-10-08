@@ -1,0 +1,15 @@
+{
+  "name": "workspace-publisher-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node sync.mjs",
+    "check": "node sync.mjs --check"
+  },
+  "devDependencies": {
+    "@devslab/site-kit": "0.19.0"
+  },
+  "overrides": {
+    "seroval": "1.6.8"
+  }
+}

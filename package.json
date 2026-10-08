@@ -1,24 +1,52 @@
 {
   "name": "@devslab/workspace",
   "description": "Retained workspace tabs, shortcuts and screen switching with headless adapters for Solid, React, Vue and Svelte",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
-  "repository": { "type": "git", "url": "git+https://github.com/devslab-kr/workspace.git" },
-  "homepage": "https://github.com/devslab-kr/workspace#readme",
-  "bugs": { "url": "https://github.com/devslab-kr/workspace/issues" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devslab-kr/workspace.git"
+  },
+  "homepage": "https://devslab-kr.github.io/workspace/",
+  "bugs": {
+    "url": "https://github.com/devslab-kr/workspace/issues"
+  },
   "author": "DevsLab",
-  "keywords": ["workspace", "tabs", "headless", "retained-state", "solid", "react", "vue", "svelte", "accessibility"],
-  "publishConfig": { "access": "public", "provenance": true },
+  "keywords": [
+    "workspace",
+    "tabs",
+    "headless",
+    "retained-state",
+    "solid",
+    "react",
+    "vue",
+    "svelte",
+    "accessibility"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "type": "module",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "files": [
     "dist",
     "README.md",
     "README.ko.md",
     "docs/react-vue.md",
-    "src/svelte/README.md"
+    "src/svelte/README.md",
+    "NOTICE",
+    "docs/assets/brand",
+    "docs/README.md",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md",
+    "docs/brand.md",
+    "docs/releasing.md",
+    "docs/verification.md"
   ],
-  "sideEffects": ["./dist/*.css"],
+  "sideEffects": [
+    "./dist/*.css"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -64,17 +92,21 @@
     "check:svelte": "svelte-check --tsconfig src/svelte/tsconfig.json"
   },
   "peerDependencies": {
-    "solid-js": "^1.9.0",
     "@ark-ui/react": "5.39.3",
     "@ark-ui/solid": "5.39.3",
     "@ark-ui/svelte": "5.24.3",
     "@ark-ui/vue": "5.39.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "vue": "^3.5.0",
-    "svelte": "^5.29.0"
+    "solid-js": "^1.9.0",
+    "svelte": "^5.29.0",
+    "vue": "^3.5.0"
   },
   "devDependencies": {
+    "@ark-ui/react": "5.39.3",
+    "@ark-ui/solid": "5.39.3",
+    "@ark-ui/svelte": "5.24.3",
+    "@ark-ui/vue": "5.39.3",
     "@axe-core/playwright": "^4.10.0",
     "@playwright/test": "^1.56.0",
     "@sveltejs/package": "*",
@@ -92,14 +124,12 @@
     "vite": "8.2.1",
     "vite-plugin-solid": "^2.11.0",
     "vitest": "^4.1.11",
-    "vue": "^3.5.43",
-    "@ark-ui/react": "5.39.3",
-    "@ark-ui/solid": "5.39.3",
-    "@ark-ui/svelte": "5.24.3",
-    "@ark-ui/vue": "5.39.3"
+    "vue": "^3.5.43"
   },
   "peerDependenciesMeta": {
-    "react-dom": { "optional": true },
+    "react-dom": {
+      "optional": true
+    },
     "vue": {
       "optional": true
     },
