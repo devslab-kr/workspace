@@ -8,7 +8,7 @@ The public repository is [devslab-kr/workspace](https://github.com/devslab-kr/wo
 
 Prefer [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/). Configure the package's trusted publisher with organization `devslab-kr`, repository `workspace`, workflow `publish.yml`, no environment, and permission to use `npm publish`. The workflow has `id-token: write` and public provenance enabled. No token is used in trusted mode.
 
-For an initial publication when a trusted publisher is unavailable, an npm administrator can grant the repository access to an existing organization `NPM_TOKEN` or configure a scoped repository secret. Run `auth-check.yml` to confirm identity without publishing. It checks only whether the secret is available and runs `npm whoami`; it never prints or copies the secret. Local npm credentials and other repositories' configuration must remain untouched.
+For an initial publication when a trusted publisher is unavailable, an npm administrator can grant the repository access to an existing organization `NPM_TOKEN` or configure a scoped repository secret. Run `auth-check.yml` to confirm secret availability without publishing. It never prints or copies the secret. Since August 2026, bypass-2FA tokens cannot perform [account-identity actions](https://docs.npmjs.com/requiring-2fa-for-package-publishing-and-settings-modification/), so a rejected `npm whoami` does not determine publication permission and is not a release gate. Local npm credentials and other repositories' configuration must remain untouched.
 
 After approval to release this version, dispatch:
 

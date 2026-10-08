@@ -1,4 +1,4 @@
-name: Check npm publication identity
+name: Check npm publication secret availability
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ jobs:
           node-version: '24.x'
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
-      - name: Verify inherited publication token without publishing
+      - name: Check inherited publication secret without publishing
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -24,4 +24,7 @@ jobs:
             echo "NPM_TOKEN is unavailable to this repository. An npm administrator must grant the repository access or configure a trusted publisher."
             exit 1
           fi
-          npm whoami
+          echo "NPM_TOKEN is available to this repository."
+          if ! npm whoami; then
+            echo "Account identity is unavailable. Since August 2026, bypass-2FA tokens cannot perform account-identity actions; this does not determine publication permission."
+          fi
