@@ -1,0 +1,15 @@
+/* Optional mapping: load DDS tokens separately. Global variables also cover
+   switchers portalled to document.body. This file copies no DDS token values. */
+:root{
+  --ws-font:var(--dds-font-family-sans);
+  --ws-background:var(--dds-color-bg-subtle);
+  --ws-surface:var(--dds-color-bg-elevated);
+  --ws-text:var(--dds-color-text-primary);
+  --ws-border:var(--dds-color-border-default);
+  --ws-accent:var(--dds-color-bg-brand);
+  --ws-on-accent:var(--dds-color-text-on-brand);
+  --ws-focus:var(--dds-color-border-focus);
+  --ws-overlay:var(--dds-color-overlay-dim);
+  --ws-dialog-radius:var(--dds-radius-xl);
+  --ws-dialog-shadow:var(--dds-elevation-3);
+}

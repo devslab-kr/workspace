@@ -1,0 +1,120 @@
+{
+  "name": "@devslab/workspace",
+  "description": "Retained workspace tabs, shortcuts and screen switching with headless adapters for Solid, React, Vue and Svelte",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md",
+    "README.ko.md",
+    "docs/react-vue.md",
+    "src/svelte/README.md"
+  ],
+  "sideEffects": ["./dist/*.css"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./solid": {
+      "types": "./dist/solid.d.ts",
+      "node": "./dist/solid-server.js",
+      "browser": "./dist/solid.js",
+      "default": "./dist/solid.js"
+    },
+    "./style.css": "./dist/style.css",
+    "./dds.css": "./dist/dds.css",
+    "./react": {
+      "import": "./dist/react.js",
+      "types": "./dist/react.d.ts"
+    },
+    "./vue": {
+      "import": "./dist/vue.js",
+      "types": "./dist/vue.d.ts"
+    },
+    "./svelte": {
+      "import": "./dist/svelte/index.js",
+      "types": "./dist/svelte/index.d.ts",
+      "svelte": "./dist/svelte/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5197 --strictPort",
+    "build": "vite build && vite build --config vite.server.config.ts && tsc --emitDeclarationOnly && svelte-package --input src/svelte --output dist/svelte --tsconfig src/svelte/tsconfig.json && node scripts/copy-css.mjs",
+    "build:demo": "vite build --mode demo",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "verify": "npm run typecheck && npm test && npm run test:adapters && npm run build && npm run build:demo && npm run test:e2e",
+    "test:adapters": "node scripts/verify-adapters.mjs",
+    "check:svelte": "svelte-check --tsconfig src/svelte/tsconfig.json"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.0",
+    "@ark-ui/react": "5.39.3",
+    "@ark-ui/solid": "5.39.3",
+    "@ark-ui/svelte": "5.24.3",
+    "@ark-ui/vue": "5.39.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "vue": "^3.5.0",
+    "svelte": "^5.29.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "^1.56.0",
+    "@sveltejs/package": "*",
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "jsdom": "30.0.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "solid-js": "^1.9.17",
+    "svelte": "^5.20.0",
+    "svelte-check": "*",
+    "typescript": "^6.0.3",
+    "vite": "8.2.1",
+    "vite-plugin-solid": "^2.11.0",
+    "vitest": "^4.1.11",
+    "vue": "^3.5.43",
+    "@ark-ui/react": "5.39.3",
+    "@ark-ui/solid": "5.39.3",
+    "@ark-ui/svelte": "5.24.3",
+    "@ark-ui/vue": "5.39.3"
+  },
+  "peerDependenciesMeta": {
+    "react-dom": { "optional": true },
+    "vue": {
+      "optional": true
+    },
+    "@ark-ui/react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "svelte": {
+      "optional": true
+    },
+    "@ark-ui/solid": {
+      "optional": true
+    },
+    "@ark-ui/svelte": {
+      "optional": true
+    },
+    "@ark-ui/vue": {
+      "optional": true
+    },
+    "solid-js": {
+      "optional": true
+    }
+  }
+}

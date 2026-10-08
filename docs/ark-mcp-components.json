@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "[\n  \"accordion\",\n  \"angle-slider\",\n  \"avatar\",\n  \"carousel\",\n  \"checkbox\",\n  \"client-only\",\n  \"clipboard\",\n  \"collapsible\",\n  \"color-picker\",\n  \"combobox\",\n  \"date-input\",\n  \"date-picker\",\n  \"dialog\",\n  \"download-trigger\",\n  \"drawer\",\n  \"editable\",\n  \"environment\",\n  \"field\",\n  \"fieldset\",\n  \"file-upload\",\n  \"floating-panel\",\n  \"focus-trap\",\n  \"format\",\n  \"frame\",\n  \"highlight\",\n  \"hotkeys\",\n  \"hover-card\",\n  \"image-cropper\",\n  \"json-tree-view\",\n  \"listbox\",\n  \"locale\",\n  \"marquee\",\n  \"menu\",\n  \"navigation-menu\",\n  \"number-input\",\n  \"pagination\",\n  \"password-input\",\n  \"pin-input\",\n  \"popover\",\n  \"presence\",\n  \"progress\",\n  \"qr-code\",\n  \"radio-group\",\n  \"rating-group\",\n  \"scroll-area\",\n  \"segment-group\",\n  \"select\",\n  \"signature-pad\",\n  \"slider\",\n  \"splitter\",\n  \"steps\",\n  \"swap\",\n  \"switch\",\n  \"tabs\",\n  \"tags-input\",\n  \"time-picker\",\n  \"timer\",\n  \"toast\",\n  \"toc\",\n  \"toggle-group\",\n  \"toggle\",\n  \"tooltip\",\n  \"tour\",\n  \"tree-view\"\n]"
+    }
+  ]
+}
