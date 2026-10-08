@@ -6,7 +6,7 @@ on:
       version:
         description: Package version matching package.json
         required: true
-        default: '0.1.1'
+        default: '0.1.2'
       publish:
         description: Publish after all verification passes (false runs verification only)
         type: boolean

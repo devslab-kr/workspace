@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- Make the default toolbar a continuous tab strip with no gaps between the switcher, tab labels and close controls.
+- Use a shared active surface and indicator for tab labels and their close buttons across Solid, React, Vue and Svelte.
+- Align the public demo with the package defaults.
+
 ## 0.1.1
 
 - Publish with GitHub Actions OIDC only; remove the initial-token fallback.

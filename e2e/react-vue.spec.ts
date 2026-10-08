@@ -5,9 +5,12 @@ for (const framework of ['react', 'vue']) {
     const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
     await page.goto(`/tests/fixtures/react-vue.html?framework=${framework}`);
     await expect(page.getByRole('tab', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('button', { name: 'Close Alpha', exact: true })).toHaveAttribute('data-active', 'true');
     await page.getByRole('textbox').fill('retained work');
     await page.getByRole('button', { name: 'Beta', exact: true }).click();
     await expect(page.getByRole('tab', { name: 'Beta' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('button', { name: 'Close Alpha', exact: true })).toHaveAttribute('data-active', 'false');
+    await expect(page.getByRole('button', { name: 'Close Beta', exact: true })).toHaveAttribute('data-active', 'true');
     const inactive = page.locator('[data-workspace-part="panel"][hidden]'); await expect(inactive).toHaveAttribute('inert', '');
     await page.getByRole('tab', { name: 'Alpha' }).click();
     await expect(page.getByRole('textbox')).toHaveValue('retained work');

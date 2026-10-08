@@ -18,6 +18,15 @@ test('order filters and selection survive switching, with both demo themes acces
   await page.getByLabel('Select WS-1042').check();
   await page.getByRole('navigation', { name: 'Screens', exact: true }).getByRole('button', { name: 'Notes', exact: true }).click();
   await page.getByRole('tab', { name: 'Orders', exact: true }).click();
+  const notesBox = await page.getByRole('tab', { name: 'Notes', exact: true }).boundingBox();
+  const switcherBox = await switcher.boundingBox();
+  const joinedTabBox = await tab.boundingBox();
+  const joinedCloseBox = await close.boundingBox();
+  expect(notesBox!.x).toBeCloseTo(joinedCloseBox!.x + joinedCloseBox!.width, 1);
+  expect(joinedTabBox!.x).toBeCloseTo(switcherBox!.x + switcherBox!.width, 1);
+  await expect(tab).toHaveCSS('border-radius', '0px');
+  await expect(close).toHaveAttribute('data-active', 'true');
+  await expect(tab).toHaveCSS('background-color', await page.getByRole('tabpanel', { name: 'Orders', exact: true }).evaluate(element => getComputedStyle(element).backgroundColor));
   await expect(page.getByLabel('Find an order')).toHaveValue('Northline');
   await expect(page.getByLabel('Select WS-1042')).toBeChecked();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
