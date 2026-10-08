@@ -17,13 +17,16 @@ export interface RetainedPanelsProps<T> {
  */
 export function RetainedPanels<T>(props: RetainedPanelsProps<T>): JSX.Element {
   return <For each={props.items}>{item => {
-    const native = createMemo(() => props.panelProps?.(item));
-    const style = () => {
-      const value = native()?.style;
-      if (props.active(item)) return value;
-      return typeof value === 'string' ? `${value.trim().replace(/;+$/, '')};display:none !important;` : { ...value, display: 'none' };
-    };
-    return <Dynamic component={props.as ?? 'div'} {...native()} style={style()}
+    const native = createMemo(() => {
+      const { style: value, ...attributes } = props.panelProps?.(item) ?? {};
+      // Omit absent active styles: Solid SSR otherwise serializes style="", which
+      // strict CSP consumers correctly reject as an inline style attribute.
+      if (props.active(item) && value === undefined) return attributes;
+      const style = props.active(item) ? value : typeof value === 'string'
+        ? `${value.trim().replace(/;+$/, '')};display:none !important;` : { ...value, display: 'none' };
+      return { ...attributes, style };
+    });
+    return <Dynamic component={props.as ?? 'div'} {...native()}
       hidden={!props.active(item)} inert={!props.active(item)}>{props.children(item)}</Dynamic>;
   }}</For>;
 }

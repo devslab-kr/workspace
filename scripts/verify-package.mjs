@@ -203,6 +203,7 @@ try {
       assert.ok(import.meta.resolve('@devslab/workspace/solid').endsWith('/solid-server.js'));
       const html = renderToString(() => createComponent(RetainedPanels, { items: [{id:'page'}], active: () => true, children: () => 'WORKER_RETAINED_PAGE' }));
       assert.match(html, /WORKER_RETAINED_PAGE/);
+      assert.ok(!html.includes('style='), 'An active panel without caller styles must not emit a CSP-blocked empty style attribute');
     `], solid);
   }
   console.log('Packed Solid worker/workerd conditions select the server build and render safely');
