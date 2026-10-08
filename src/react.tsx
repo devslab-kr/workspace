@@ -80,8 +80,3 @@ export function WorkspaceSwitcher(props: { children?: ReactNode } = {}) {
 }
 export function Workspace(props: WorkspaceProps) { return h(WorkspaceProvider, props, props.children, props.menu !== false && h(WorkspaceMenu), h('div', { className: props.unstyled ? props.classNames?.toolbar : `workspace-toolbar ${props.classNames?.toolbar ?? ''}` }, h(WorkspaceSwitcherTrigger), h(WorkspaceTabList)), h(WorkspaceStatus), h(WorkspacePanels), h(WorkspaceSwitcher)); }
 export { WorkspaceProvider as Provider, WorkspaceTabList as TabList, WorkspaceTab as Tab, WorkspaceCloseButton as CloseButton, WorkspacePanels as Panels, WorkspaceSwitcher as Switcher, WorkspaceSwitcherTrigger as SwitcherTrigger };
-
-
-
-
-

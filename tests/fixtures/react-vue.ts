@@ -15,5 +15,3 @@ if (framework === 'react') {
   const Page = defineComponent({ setup() { Object.assign(window, { adapterController: vueWorkspace() }); events.mounted++; const value = ref(''); onUnmounted(() => { events.cleaned++; }); vueActiveEffect(() => { events.active++; return () => { events.inactive++; }; }); return () => h('label', ['Work input', h('input', { value: value.value, onInput: (e: Event) => { value.value = (e.target as HTMLInputElement).value; } })]); } });
   createApp({ render: () => h(VueWorkspace, { screens: [{ id: 'a', title: 'Alpha', component: Page }, { id: 'b', title: 'Beta', component: Page }], defaultScreen: 'a', beforeActivate }) }).mount('#app');
 }
-
-

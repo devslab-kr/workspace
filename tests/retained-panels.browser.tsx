@@ -28,4 +28,3 @@ it.each(['object', 'string'])('owns inactive display while restoring consumer %s
   setActive(true); expect(panel.hidden).toBe(false); expect(getComputedStyle(panel).display).toBe(format === 'string' ? 'flex' : 'grid'); expect(panel.style.color).toBe('red');
   setActive(false); expect(getComputedStyle(panel).display).toBe('none');
 });
-

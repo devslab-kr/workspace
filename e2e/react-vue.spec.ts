@@ -74,7 +74,3 @@ for (const framework of ['react', 'vue']) {
     await expect(page.locator('[data-workspace-part="panel"]:not([hidden])')).toBeVisible();
     await page.getByRole('tab', { name: 'Alpha' }).click(); await expect(page.getByRole('textbox')).toHaveValue('custom retained');
   });}
-
-
-
-
