@@ -107,4 +107,56 @@ for (const framework of ['react', 'vue']) {
     await expect(inactive).toBeHidden(); await expect(inactive).toHaveCSS('display', 'none');
     await expect(page.locator('[data-workspace-part="panel"]:not([hidden])')).toBeVisible();
     await page.getByRole('tab', { name: 'Alpha' }).click(); await expect(page.getByRole('textbox')).toHaveValue('custom retained');
-  });}
+  });
+  test(`${framework}: dynamic registry: path ids, live titles, revocation, renewal, data and busy state`, async ({ page }) => {
+    const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+    await page.goto(`/tests/fixtures/react-vue.html?framework=${framework}&dynamic`);
+    const events = () => page.evaluate(() => ({ ...(window as any).events }));
+    const orders = page.getByRole('tab', { name: /^Orders/ }); const customers = page.getByRole('tab', { name: 'Customers', exact: true });
+    await expect(customers).toHaveAttribute('aria-selected', 'true');
+    expect(await page.evaluate(() => (window as any).workspace.open('/orders 1 한국'))).toBe('ok');
+    await expect(orders).toHaveAttribute('aria-selected', 'true');
+    expect(await orders.evaluate(tab => {
+      const panel = document.getElementById(tab.getAttribute('aria-controls')!);
+      return !!panel && panel.getAttribute('data-workspace-part') === 'panel' && document.getElementById(panel.getAttribute('aria-labelledby')!) === tab;
+    })).toBe(true);
+    await page.getByLabel('Orders draft', { exact: true }).fill('kept');
+    const before = await events();
+    await page.evaluate(() => (window as any).workspace.open('/customers'));
+    await expect(customers).toHaveAttribute('aria-selected', 'true');
+    await page.evaluate(() => { const w = (window as any).workspace; w.register({ ...w.getScreen('/orders 1 한국'), title: 'Orders (2)' }); });
+    await expect(orders).toHaveText('Orders (2)');
+    await orders.click(); await expect(orders).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByLabel('Orders draft', { exact: true })).toHaveValue('kept');
+    expect((await events()).mounted).toBe(before.mounted);
+    expect(await page.evaluate(() => (window as any).workspace.retainOnly(['/customers']))).toEqual(['/orders 1 한국']);
+    await expect(orders).toHaveCount(0); await expect.poll(async () => (await events()).cleaned).toBe(before.cleaned + 1);
+    await expect(page.getByText('Choose a screen', { exact: true })).toBeVisible();
+    await customers.click(); await expect(customers).toHaveAttribute('aria-selected', 'true');
+    const made = Number(await page.locator('[data-workspace-part="panel"]:not([hidden]) [data-made]').textContent());
+    const renewed = await events();
+    await page.evaluate(() => { const w = (window as any).workspace; w.register(w.getScreen('/customers'), { renew: true }); });
+    await expect.poll(events).toEqual({ mounted: renewed.mounted + 1, cleaned: renewed.cleaned + 1 });
+    expect(Number(await page.locator('[data-workspace-part="panel"]:not([hidden]) [data-made]').textContent())).toBeGreaterThan(made);
+    expect(await page.evaluate(() => (window as any).workspace.getTab('/customers').slot)).toBe(1);
+    expect(await customers.getAttribute('id')).toMatch(/-tab-1$/);
+    await expect(page.getByRole('button', { name: 'Close Customers', exact: true })).toBeDisabled();
+    await page.evaluate(() => (window as any).workspace.open('/orders 1 한국'));
+    await expect(orders).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('button', { name: 'Close Customers', exact: true })).toBeEnabled();
+    await page.evaluate(() => { const w = window as any; w.hold = true; void w.workspace.open('/customers'); });
+    await expect(customers).toHaveAttribute('aria-selected', 'true'); await expect(customers).toHaveAttribute('aria-busy', 'true');
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.evaluate(() => { const w = window as any; w.release(); });
+    await expect(customers).not.toHaveAttribute('aria-busy', 'true');
+    await page.evaluate(() => { void (window as any).workspace.open('/reports'); });
+    const pending = page.locator('[data-workspace-part="pending"]');
+    await expect(pending).toHaveText('Opening /reports'); await expect(pending).toHaveAttribute('aria-busy', 'true');
+    expect(await pending.evaluate(node => !node.closest('[role="tablist"]'))).toBe(true);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.evaluate(() => { const w = window as any; w.hold = false; w.release(); });
+    await expect(page.getByRole('tab', { name: 'Reports', exact: true })).toHaveAttribute('aria-selected', 'true'); await expect(pending).toHaveCount(0);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}

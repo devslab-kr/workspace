@@ -142,8 +142,8 @@ export function WorkspaceTabList(props: { children?: JSX.Element }) {
       <WorkspaceTab id={tab.id} style={{ 'grid-column': index() * 2 + 1, 'grid-row': 1 }} />
     }</For></Tabs.List>
     <For each={c.state().tabs}>{(tab, index) => <WorkspaceCloseButton id={tab.id} style={{ 'grid-column': index() * 2 + 2, 'grid-row': 1 }} />}</For>
-    <Show when={!c.state().tabs.some(tab => tab.id === c.state().pendingId) && c.state().pendingId}>{id =>
-      <span data-workspace-part="pending" aria-busy="true" class={c.cls('pending')} style={{ 'grid-column': c.state().tabs.length * 2 + 1, 'grid-row': 1 }}>{c.props.slots?.pendingTab?.(id())}</span>
+    <Show when={c.props.slots?.pendingTab && !c.state().tabs.some(tab => tab.id === c.state().pendingId) && c.state().pendingId}>{id =>
+      <span data-workspace-part="pending" aria-busy="true" class={c.cls('pending')} style={{ 'grid-column': c.state().tabs.length * 2 + 1, 'grid-row': 1 }}>{c.props.slots!.pendingTab!(id())}</span>
     }</Show>
   </div>}><Tabs.List data-workspace-part="tabs" aria-label={c.labels().tabs} class={c.cls('tabs')}>{props.children}</Tabs.List></Show>;
 }
