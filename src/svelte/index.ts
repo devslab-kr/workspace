@@ -9,4 +9,4 @@ export { default as WorkspaceStatus } from './WorkspaceStatus.svelte';
 export { default as WorkspaceSwitcher } from './WorkspaceSwitcher.svelte';
 export { default as WorkspaceSwitcherTrigger } from './WorkspaceSwitcherTrigger.svelte';
 export { useWorkspace, useWorkspaceState, useWorkspacePage, useActiveEffect } from './context.svelte';
-export type { WorkspaceScreen, WorkspaceMenu as WorkspaceMenuItem, WorkspaceLabels, WorkspacePart, WorkspaceProps, WorkspacePresentation, PageActivity } from './context.svelte';
+export type { WorkspaceScreen, AdapterScreen, WorkspaceMenu as WorkspaceMenuItem, WorkspaceLabels, WorkspacePart, WorkspaceProps, WorkspacePresentation, PageActivity } from './context.svelte';

@@ -2,18 +2,19 @@
   import { onDestroy, onMount, tick, untrack } from 'svelte';
   import WorkspaceRoot from './WorkspaceRoot.svelte';
   import { LocaleProvider } from '@ark-ui/svelte/locale';
-  import { createWorkspace } from '../core';
-  import { defaultLabels, matches, provideWorkspace, type WorkspaceContext, type WorkspacePart, type WorkspaceProps } from './context.svelte';
+  import { createWorkspace, type WorkspaceController } from '../core';
+  import { defaultLabels, matches, provideWorkspace, type AdapterScreen, type WorkspaceContext, type WorkspacePart, type WorkspaceProps, type WorkspaceScreen } from './context.svelte';
   let props: WorkspaceProps = $props();
-  // Registry and controller belong to this mounted workspace identity.
+  // The controller and the `screens` prop belong to this mounted workspace identity; screens change through the controller (`register`).
   const initialProps = untrack(() => props);
-  const api = initialProps.controller ?? createWorkspace(initialProps);
-  const registry = new Map(initialProps.screens.map(screen => [screen.id, screen]));
-  if (registry.size !== initialProps.screens.length || api.getScreens().length !== registry.size || api.getScreens().some(screen => !registry.has(screen.id))) throw new Error('Controller and component screen registries must match');
-  if (initialProps.menus?.some(menu => !registry.has(menu.id))) throw new Error('Menu references an unknown screen');
+  const api: WorkspaceController<AdapterScreen, any> = initialProps.controller ?? createWorkspace<AdapterScreen, any>(initialProps);
+  const components = new Map((initialProps.screens ?? []).map(screen => [screen.id, screen.component]));
+  const fallbackTitles = new Map((initialProps.screens ?? []).map(screen => [screen.id, screen.title]));
   let snapshot = $state(api.getSnapshot()); let status = $state(''); let root = $state<Element | null>(null);
   let direction = $state<'ltr' | 'rtl'>('ltr'); let opener: HTMLElement | undefined;
   const instanceId = $props.id(); const prefix = `ws-${instanceId}`;
+  // Subscribed during initialization, so a child that registers in its own initialization is seen by the parts after it.
+  // Svelte's server renderer runs onDestroy once the render finishes, so a server render leaves no listener on a shared controller.
   onDestroy(api.subscribe(next => { snapshot = next; }));
   const labels = () => ({ ...defaultLabels, ...props.labels });
   const cls = (part: WorkspacePart) => [props.unstyled ? '' : part === 'root' ? 'workspace' : `workspace-${part}`, props.classNames?.[part]].filter(Boolean).join(' ') || undefined;
@@ -26,7 +27,15 @@
     finally { stop?.(); }
   }
   function showSwitcher() { opener = document.activeElement instanceof HTMLElement ? document.activeElement : undefined; api.showSwitcher(); }
-  const context: WorkspaceContext = { api, get state() { return snapshot; }, get props() { return props; }, get labels() { return labels(); }, get status() { return status; }, screen: id => registry.get(id)!, cls, run, showSwitcher, root: () => (root ?? undefined) as HTMLElement | undefined, opener: () => opener, prefix };
+  /** The controller's live definition with its component, else the same id's component from the `screens` prop. */
+  function screen(id: string): WorkspaceScreen | undefined {
+    const definition = snapshot.screens.find(screen => screen.id === id); if (!definition) return undefined;
+    if (definition.component) return definition as WorkspaceScreen;
+    const component = components.get(id); return component ? { ...definition, component } : undefined;
+  }
+  const title = (id: string) => snapshot.screens.find(screen => screen.id === id)?.title ?? fallbackTitles.get(id) ?? id;
+  const slot = (id: string) => snapshot.tabs.find(tab => tab.id === id)?.slot ?? 0;
+  const context: WorkspaceContext = { api, get state() { return snapshot; }, get props() { return props; }, get labels() { return labels(); }, get status() { return status; }, screen, title, slot, cls, run, showSwitcher, root: () => (root ?? undefined) as HTMLElement | undefined, opener: () => opener, prefix };
   provideWorkspace(context);
   onMount(() => {
     if (!root) return;
