@@ -334,3 +334,59 @@ describe('checks and show', () => {
     expect(api.getSnapshot().pendingId).toBeUndefined(); expect(api.getSnapshot().activeId).toBe('b');
   });
 });
+describe('a check whose screen is on display', () => {
+  const gate = () => { let r!: (v: boolean) => void; const p = new Promise<boolean>(x => { r = x; }); return { p, r }; };
+  const tick = () => new Promise(r => setTimeout(r, 0));
+  for (const allowed of [false, true]) {
+    for (const step of ['closing another tab', 'a refused open of another screen', 'cancelPending'] as const) {
+      it(`a retained-first check survives ${step}; its answer still decides (${allowed ? 'ok' : 'denied'})`, async () => {
+        const g = gate(); let held = false;
+        const api = createWorkspace({ screens, showRetainedFirst: true, beforeActivate: id => held && id === 'a' ? g.p : id !== 'd' });
+        for (const id of ['a', 'b', 'c']) await api.open(id);
+        held = true;
+        const opening = api.open('a');
+        expect(api.getSnapshot().activeId).toBe('a'); expect(api.getSnapshot().pendingId).toBe('a');
+        if (step === 'closing another tab') expect(await api.close('b')).toBe('ok');
+        else if (step === 'a refused open of another screen') expect(await api.open('d')).toBe('denied');
+        else api.cancelPending();
+        expect(api.getSnapshot().activeId).toBe('a'); expect(api.getSnapshot().pendingId).toBe('a');
+        g.r(allowed);
+        expect(await opening).toBe(allowed ? 'ok' : 'denied');
+        expect(api.getSnapshot().activeId).toBe(allowed ? 'a' : undefined); expect(api.getSnapshot().pendingId).toBeUndefined();
+      });
+    }
+  }
+  it('an open whose screen the router showed survives closing another tab; a refusal leaves nothing active', async () => {
+    const g = gate(); let held = false;
+    const api = createWorkspace({ screens, beforeActivate: async id => { if (!held || id !== 'c') return true; api.show('c'); return g.p; } });
+    await api.open('a'); await api.open('b'); held = true;
+    const opening = api.open('c');
+    expect(api.getSnapshot().activeId).toBe('c');
+    expect(await api.close('a')).toBe('ok');
+    g.r(false);
+    expect(await opening).toBe('denied'); expect(api.getSnapshot().activeId).toBeUndefined();
+  });
+  it('a newer retained-first open of the same screen overtakes the earlier one', async () => {
+    const gates: ((v: boolean) => void)[] = []; let held = false;
+    const api = createWorkspace({ screens, showRetainedFirst: true, beforeActivate: () => held ? new Promise<boolean>(r => gates.push(r)) : true });
+    await api.open('a'); await api.open('b'); held = true;
+    const first = api.open('a'); const second = api.open('a');
+    gates[0](false); expect(await first).toBe('stale'); expect(api.getSnapshot().activeId).toBe('a');
+    gates[1](true); expect(await second).toBe('ok'); expect(api.getSnapshot().activeId).toBe('a');
+    expect(api.getSnapshot().pendingId).toBeUndefined();
+  });
+  it('a close-neighbour check is not restored after the router showed another checked screen', async () => {
+    const n = gate(); const d = gate(); let held = false;
+    const api = createWorkspace({ screens, beforeActivate: id => !held ? true : id === 'b' ? n.p : d.p });
+    await api.open('a'); await api.open('b'); await api.select('a'); held = true;
+    const closing = api.close('a'); await tick();
+    expect(api.getSnapshot().pendingId).toBe('b');
+    const opening = api.open('d'); expect(api.getSnapshot().pendingId).toBe('d');
+    expect(api.show('d')).toBe('ok'); expect(api.getSnapshot().activeId).toBe('d');
+    d.r(false);
+    expect(await opening).toBe('denied');
+    expect(api.getSnapshot().activeId).toBeUndefined(); expect(api.getSnapshot().pendingId).toBeUndefined();
+    n.r(true);
+    expect(await closing).toBe('stale'); expect(api.getSnapshot().activeId).toBeUndefined();
+  });
+});

@@ -80,16 +80,16 @@ controller.retainOnly(allowedIds);
 - `show(id)`는 등록된 화면을 활성으로 만들고 `ok`·`unknown`·`limit`을 돌려준다. **`show()`와 `register(…, { show: true })`는 가드를 실행하지 않는다.** 이미 경로를 허용한 앱 라우터용이다. 확인 중인 화면을 보여 주는 것은 그 확인의 일부이고, 다른 화면을 보여 주면 확인은 `stale`로 끝난다.
 - `unregister(id)`와 `retainOnly(ids)`는 닫기가 아니라 회수다. beforeClose 없이, 옆 화면도 보여 주지 않고 정의와 탭을 함께 지운다. 활성 탭이 지워지면 앱이 다른 화면을 보여 줄 때까지 활성 화면이 없다. 이후 `open(id)`는 가드에 다시 묻는다. 지워진 화면의 진행 중 확인·열기·닫기는 `stale`로 끝난다. `retainOnly`는 지운 id를 돌려준다. `reset()`은 모든 탭을 닫고 시작 목록을 그대로 복원한다.
 - 등록되지 않은 id의 `open(id)`: beforeActivate가 없으면 `unknown`이다. 가드가 있으면 탭 상한을 확인하고 가드를 실행한 뒤 레지스트리를 읽는다. 그 사이 라우트가 화면을 등록했으면 열고, 아니면 `unknown`이다.
-- `home`(id 또는 id를 돌려주는 함수): 하나 남은 탭이 home이면 닫기를 거절(`cancelled`)하고 `canClose(id)`가 false라 기본 닫기 버튼이 비활성화되고 Delete도 동작하지 않는다. 다른 화면의 마지막 탭을 닫으면 가드를 거쳐 home을 연다. 기본 부품은 스냅샷이 바뀔 때 비활성 상태를 다시 읽으므로, 바깥 상태를 읽는 `home` 함수는 다음 변경 때 반영된다.
-- `showRetainedFirst: true`: 열린 탭의 `open(id)`는 그 탭을 바로 보여 주고 그다음 확인한다. 거절되면 활성 화면이 없다.
-- `createTabData(screen)`는 탭 인스턴스마다(새 탭 또는 renew) 한 번 실행되며, 그 값이 `Tab.data`와 `useWorkspacePage().data`다. 없으면 `data`는 `undefined`다(타입 매개변수 기본값도 `undefined`).
+- `home`(id 또는 id를 돌려주는 함수): 하나 남은 탭이 home이면 닫기를 거절(`cancelled`)하고 `canClose(id)`가 false라 기본 닫기 버튼이 비활성화되고 Delete도 동작하지 않는다. 다른 화면의 마지막 탭을 닫으면 가드를 거쳐 home을 연다. home이 등록되지 않았고 beforeActivate 가드도 없으면 마지막 탭은 그대로 닫히고 `close()`는 `unknown`으로 끝난다(빈 작업 공간). 기본 부품은 스냅샷이 바뀔 때 비활성 상태를 다시 읽으므로, 바깥 상태를 읽는 `home` 함수는 다음 변경 때 반영된다.
+- `showRetainedFirst: true`: 열린 탭의 `open(id)`는 그 탭을 바로 보여 주고 그다음 확인한다. 거절되면 활성 화면이 없다. 확인 중에 다른 탭을 닫거나, 다른 화면의 `open`이 반영되지 않고 끝나거나, `cancelPending()`(URL 어댑터는 새 URL마다 호출한다)을 불러도 그 확인은 끝나지 않고 그 답이 결과를 정한다. 닫은 탭의 옆 화면 확인과 같다. URL 어댑터는 확인이 허용한 뒤에야 그 화면의 URL을 받아들이므로, 거절된 뒤로/앞으로 이동은 마지막으로 받아들인 URL로 되돌린다.
+- `createTabData(screen)`는 탭 인스턴스마다(새 탭 또는 renew) 한 번 실행되며, 그 값이 `Tab.data`와 `useWorkspacePage().data`다. 없으면 `data`는 `undefined`다. 코어 타입의 데이터 매개변수(`Tab<D>`·`Snapshot<S, D>`·`Options<S, D>`) 기본값은 `undefined`이고, `useWorkspacePage<D>()`의 기본값은 `unknown`이므로 `data`의 타입은 `D`로 지정한다.
 - `snapshot.pendingId`는 beforeActivate가 실행 중인 id이며 모든 종류의 확인에 해당한다. 기본 탭은 `aria-busy`로 표시한다. 아직 탭이 없는 id는 선택 슬롯 `slots.pendingTab(id)`가 기본 탭 줄의 닫기 버튼 뒤, 탭 목록 바깥에 `pending` 부품으로 그린다. 슬롯이 없으면 아무것도 그리지 않는다.
 - `getScreen(id)`·`getTab(id)`·`canClose(id)`는 현재 상태를 읽는다.
 - 페이지: `useWorkspacePage()`는 `{ id, active, data, screen }`을 돌려준다. `screen`은 현재 정의라 다시 마운트하지 않고 제목이 바뀐다. 기본 패널은 여전히 props 없이 컴포넌트를 렌더한다.
 - 어댑터 정의는 `AdapterScreen`이다(`component` 선택). 컨트롤러를 넘기면 그 목록이 우선이고 `screens` prop이 빠진 컴포넌트를 id로 채운다. 어느 쪽에도 컴포넌트가 없는 화면은 빈 패널이 되고, 나중에 추가한 컴포넌트는 `renew`로만 적용된다.
 - 기본 메뉴는 `screens` prop이 비어 있지 않으면 그 목록을, 아니면 현재 레지스트리를 보여 준다. `menus` 항목은 아직 등록되지 않은 화면을 가리킬 수 있으며, 그 항목에는 `label`을 준다.
 - 리스너와 `onChange`는 모든 반영 안에서 동기로 실행되며 가드 실행 중에도 실행된다(`pendingId` 변경). **스냅샷 변경에 반응해 화면을 등록하거나 보여 주면 안 된다.** 등록은 라우터의 일이다.
-- SSR: 렌더 전에 요청별 컨트롤러에 등록(과 show)하고, 요청마다 컨트롤러 하나를 쓰며, 클라이언트에서 같은 등록을 같은 순서로 다시 실행해 슬롯을 맞춘다. Solid·Svelte·Vue는 탭 부품이 렌더되기 전이라면 렌더 중 등록도 받는다. 이때 Vue는 하이드레이션 전까지 그 탭을 `aria-selected="false"`로 렌더하며 불일치는 생기지 않는다. React는 렌더 전 등록만 지원한다.
+- SSR: 렌더 전에 요청별 컨트롤러에 등록(과 show)하고, 요청마다 컨트롤러 하나를 쓰며, 클라이언트에서 같은 등록을 같은 순서로 다시 실행해 슬롯을 맞춘다. Vue에서는 `showRetainedFirst` 같은 불리언 옵션을 바인딩한다(`:show-retained-first="true"`). 값 없는 속성은 `''`로 전달되어 `true`가 아니다. Solid·Svelte·Vue는 탭 부품이 렌더되기 전이라면 렌더 중 등록도 받는다. 이때 Vue는 하이드레이션 전까지 그 탭을 `aria-selected="false"`로 렌더하며 불일치는 생기지 않는다. React는 렌더 전 등록만 지원한다.
 
 ## 기여
 

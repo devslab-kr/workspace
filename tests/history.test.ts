@@ -111,3 +111,19 @@ it('carries a screen type with extra fields through options and the controller',
   expect(extra).toBe(2); expect(seen.at(-1)).toBe(2);
   bridge.dispose();
 });
+it('a refused retained-first back navigation restores the last accepted URL; an allowed one becomes accepted', async () => {
+  const history = memoryHistory(); let held = false; let resolve!: (allowed: boolean) => void;
+  const bridge = createHistoryWorkspace({ screens: ['a', 'b'].map(id => ({ id, title: id })), showRetainedFirst: true, screenFromUrl: url => url.slice(1), urlForScreen: id => `/${id}`,
+    beforeActivate: id => held && id === 'a' ? new Promise<boolean>(done => { resolve = done; }) : true }, history);
+  await bridge.ready; await bridge.controller.open('b'); expect(history.read()).toBe('/b');
+  held = true; history.move('/a'); const back = bridge.sync();
+  expect(bridge.controller.getSnapshot().activeId).toBe('a');
+  resolve(false); expect(await back).toBe('denied');
+  expect(history.read()).toBe('/b'); expect(history.replaced.at(-1)).toBe('/b'); expect(bridge.controller.getSnapshot().activeId).toBeUndefined();
+  history.move('/a'); const allowed = bridge.sync(); resolve(true); expect(await allowed).toBe('ok');
+  expect(history.read()).toBe('/a'); expect(bridge.controller.getSnapshot().activeId).toBe('a');
+  held = false; await bridge.controller.open('b');
+  held = true; history.move('/a'); const refused = bridge.sync(); resolve(false); expect(await refused).toBe('denied');
+  expect(history.read()).toBe('/b');
+  bridge.dispose();
+});

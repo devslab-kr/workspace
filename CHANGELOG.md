@@ -11,6 +11,7 @@
 - **Breaking:**
   - `open()` with a `beforeActivate` guard now calls the guard for ids that are not registered, and reads the registry afterwards. This includes `createHistoryWorkspace` back/forward.
   - Re-opening the already active screen with a refusing guard now leaves no screen active: a refused check clears the screen when the checked screen is on display.
+  - A check whose screen is on display (`showRetainedFirst`, a closed tab's neighbour, or a screen the router showed during its check) is not ended by closing other tabs, an `open` that shows nothing, or `cancelPending()`; it ends when another activation commits, another screen is shown, its screen is closed or revoked, or `reset()` runs. `createHistoryWorkspace` accepts such a screen's URL only once its check allows it.
   - While a guard runs, snapshots change (`pendingId`), so listeners and `onChange` may fire during a check. A close whose neighbour has a guard notifies twice (the commit, then `pendingId` clearing).
   - Solid, React, Vue and Svelte: the switcher choice ids and the Ark tab trigger and content ids are built from the slot, not the screen id.
   - `reset()` and the history adapter's `dispose()` drop run-time registrations and restore the starting list.

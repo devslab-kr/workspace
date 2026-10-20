@@ -29,13 +29,17 @@ export function createHistoryWorkspace<S extends Screen = Screen, D = undefined>
   let observed = 0;
   let acceptedUrl = history.read();
   let activeId: string | undefined;
+  /** The screen `acceptedUrl` belongs to; undefined while it is the starting URL. */
+  let acceptedId: string | undefined;
   const api = createWorkspace<S, D>({ ...options, onChange(snapshot: Snapshot<S, D>) {
     const activationChanged = snapshot.activeId !== activeId;
     activeId = snapshot.activeId;
-    if (!disposed && activationChanged && snapshot.activeId) {
+    // A screen shown while its own check runs (retained-first, a closed tab's neighbour) is accepted only once that check settles.
+    const settled = snapshot.activeId !== undefined && snapshot.pendingId !== snapshot.activeId ? snapshot.activeId : undefined;
+    if (!disposed && snapshot.activeId && (activationChanged || (settled !== undefined && settled !== acceptedId))) {
       const url = options.urlForScreen(snapshot.activeId);
-      if (history.read() !== url) history.push(url);
-      acceptedUrl = url;
+      if (activationChanged && history.read() !== url) history.push(url);
+      if (settled !== undefined) { acceptedUrl = url; acceptedId = settled; }
     }
     options.onChange?.(snapshot);
   } });

@@ -14,7 +14,14 @@ export type Result = 'ok' | 'unknown' | 'limit' | 'denied' | 'cancelled' | 'stal
 /** A running beforeActivate call: from open/select, a retained-first open, or a closed tab's neighbour. */
 interface Check {
   readonly id: string; readonly kind: 'open' | 'retained' | 'neighbour';
-  /** A close-neighbour check still running underneath this open; it is the running check again if this one ends without committing. */
+  /**
+   * The activation count when this check's screen went on display (a retained-first show, a
+   * closed tab's neighbour, or the router showing the checked screen).
+   * A check on display is overtaken only by an activation, a revocation or its screen leaving the
+   * display, not by closing other tabs, an open that shows nothing, or cancelPending.
+   */
+  shown?: number;
+  /** A check on display still running underneath this open; it is the running check again if this one ends without committing. */
   under?: Check;
 }
 export interface Options<S extends Screen = Screen, D = undefined> {
@@ -79,6 +86,12 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
   const closing = new Map<string, Promise<Result>>();
   /** The running check (a beforeActivate call); its id is the snapshot's pendingId. */
   let check: Check | undefined;
+  /** Per-id generation of the latest guarded open, so a newer open of the same screen overtakes an earlier one on display. */
+  const opened = new Map<string, number>();
+  /** Whether `c` is a check whose screen is still on display, as it was when it went on display. */
+  const onDisplay = (c: Check | undefined): boolean => c?.shown !== undefined && c.shown === activations && state.activeId === c.id;
+  /** The check on display that keeps running underneath whatever replaces the running check. */
+  const displayed = () => onDisplay(check) ? check : onDisplay(check?.under) ? check?.under : undefined;
   function newTab(screen: S, slot: number): Tab<D> {
     return Object.freeze({ id: screen.id, slot, instance: ++instance, data: options.createTabData?.(screen) as D });
   }
@@ -102,7 +115,8 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
    */
   function settle(mine: Check | undefined, refuse: boolean) {
     const ours = mine !== undefined && check === mine;
-    if (ours) check = mine.under;
+    // An underlying check whose screen has left the display was overtaken; it does not run again.
+    if (ours) check = onDisplay(mine.under) ? mine.under : undefined;
     else if (mine !== undefined && check?.under === mine) check.under = undefined;
     const clear = refuse && mine !== undefined && state.activeId === mine.id;
     if (ours || clear) commit(state.tabs, clear ? undefined : state.activeId);
@@ -116,6 +130,7 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
     const next = withTab(tabs, screen);
     if (!next) return { result: 'limit', tabs, activeId: state.activeId };
     if (check?.id !== screen.id) { generation++; activations++; check = undefined; }
+    else check.shown ??= activations;
     return { result: 'ok', tabs: next, activeId: screen.id };
   }
   const liveScreens = () => Object.freeze([...live.values()]);
@@ -143,16 +158,21 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
     if (!retained && state.tabs.length >= max) return 'limit';
     const request = ++generation;
     const revoked = revocations.get(id);
-    const current = () => request === generation && revoked === revocations.get(id);
     let mine: Check | undefined;
+    // A check on display is current while its screen stays on display; any other while no newer request came.
+    const current = () => (mine?.shown !== undefined ? onDisplay(mine) && opened.get(id) === request : request === generation) && revoked === revocations.get(id);
     if (guard) {
       // Commit, listeners, then the guard call, with nothing awaited in between.
       const first = retained && options.showRetainedFirst === true;
       const shows = first && state.activeId !== id;
-      // A running close-neighbour check keeps running underneath, unless this open shows another screen (which overtakes it).
-      const under = shows ? undefined : check?.kind === 'neighbour' ? check : check?.under;
-      mine = check = { id, kind: first ? 'retained' : 'open', under };
+      // A running check on display keeps running underneath, unless this open shows another screen (which overtakes it)
+      // or is a newer open of that same screen (which replaces it).
+      let under = shows ? undefined : displayed();
+      if (under && under.kind !== 'neighbour' && under.id === id) under = onDisplay(under.under) ? under.under : undefined;
+      opened.set(id, request);
       if (shows) activations++;
+      // A retained-first check is on display from the start; a plain open only once the router shows its screen.
+      mine = check = { id, kind: first ? 'retained' : 'open', under, shown: first ? activations : undefined };
       commit(state.tabs, first ? id : state.activeId);
     }
     let allowed: boolean | undefined;
@@ -195,9 +215,9 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
     const index = state.tabs.findIndex(t => t.id === id);
     const next = wasActive ? (state.tabs[index + 1] ?? state.tabs[index - 1])?.id : state.activeId;
     const guard = options.beforeActivate;
-    const neighbour: Check | undefined = wasActive && next && guard ? { id: next, kind: 'neighbour' } : undefined;
-    // Any open check is already overtaken (this close moved the generation); an earlier close's neighbour check is not.
-    const kept = check?.kind === 'neighbour' ? check : check?.under;
+    const neighbour: Check | undefined = wasActive && next && guard ? { id: next, kind: 'neighbour', shown: activations } : undefined;
+    // An open check of a screen not on display is overtaken (this close moved the generation); a check on display is not.
+    const kept = displayed();
     // A kept check of the tab being closed no longer shows anything.
     check = neighbour ?? (kept?.id === id ? undefined : kept);
     commit(state.tabs.filter(t => t.id !== id), next);
@@ -263,8 +283,8 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     cancelPending() {
       generation++; closing.clear();
-      // Open checks are now stale; a close's neighbour check keeps running, as in 0.2.0.
-      if (check && check.kind !== 'neighbour') { check = check.under; commit(state.tabs, state.activeId); }
+      // Checks of screens not on display are now stale; a check on display keeps running, as a close's neighbour check did in 0.2.0.
+      if (check && !onDisplay(check)) { check = onDisplay(check.under) ? check.under : undefined; commit(state.tabs, state.activeId); }
     },
     reset() { generation++; activations++; closing.clear(); check = undefined; live = new Map(initial.map(s => [s.id, s])); commit([], undefined, false, initial); }
   };
