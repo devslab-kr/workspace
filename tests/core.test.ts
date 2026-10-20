@@ -282,4 +282,51 @@ describe('checks and show', () => {
     expect(api.getScreen('n')).toBeDefined(); expect(api.getTab('n')).toBeUndefined();
     expect(api.getSnapshot().activeId).toBe('a');
   });
+  it('home: the only tab cannot be closed when it is home; canClose reports it', async () => {
+    const api = createWorkspace({ screens, home: 'a' });
+    await api.open('a');
+    expect(api.canClose('a')).toBe(false); expect(api.canClose('missing')).toBe(false);
+    expect(await api.close('a')).toBe('cancelled');
+    expect(api.getSnapshot().tabs.map(t => t.id)).toEqual(['a']); expect(api.getSnapshot().activeId).toBe('a');
+    await api.open('b');
+    expect(api.canClose('a')).toBe(true); expect(api.canClose('b')).toBe(true);
+  });
+  it('home: closing the last other tab removes it at once and opens home through its guard', async () => {
+    const calls: string[] = []; const g = gate(); let held = false;
+    const api = createWorkspace({ screens, home: () => 'a', beforeActivate: id => { calls.push(id); return held ? g.p : true; } });
+    await api.open('b'); calls.length = 0; held = true;
+    const closing = api.close('b');
+    expect(calls).toEqual(['a']);
+    expect(api.getSnapshot().tabs).toEqual([]); expect(api.getSnapshot().pendingId).toBe('a');
+    g.r(true);
+    expect(await closing).toBe('ok');
+    expect(api.getSnapshot().activeId).toBe('a'); expect(api.getSnapshot().tabs.map(t => t.id)).toEqual(['a']);
+    expect(api.getSnapshot().pendingId).toBeUndefined();
+  });
+  it('home: an unregistered home without a guard leaves the workspace empty (unknown)', async () => {
+    const api = createWorkspace({ screens, home: 'zzz' });
+    await api.open('b');
+    expect(await api.close('b')).toBe('unknown');
+    expect(api.getSnapshot().tabs).toEqual([]); expect(api.getSnapshot().activeId).toBeUndefined();
+  });
+  it('home plays no part while other tabs remain: the neighbour rule applies', async () => {
+    const calls: string[] = [];
+    const api = createWorkspace({ screens, home: 'a', beforeActivate: id => { calls.push(id); return true; } });
+    await api.open('b'); await api.open('c'); await api.select('b'); calls.length = 0;
+    expect(await api.close('b')).toBe('ok');
+    expect(api.getSnapshot().activeId).toBe('c'); expect(calls).toEqual(['c']);
+    expect(api.getTab('a')).toBeUndefined();
+  });
+  it('a refused open does not hide a running close-neighbour check (pendingId stays on the neighbour)', async () => {
+    const n = gate(); let held = false;
+    const api = createWorkspace({ screens, beforeActivate: id => held && id === 'b' ? n.p : id !== 'c' });
+    await api.open('a'); await api.open('b'); await api.select('a'); held = true;
+    const closing = api.close('a'); await tick();
+    expect(api.getSnapshot().pendingId).toBe('b');
+    expect(await api.open('c')).toBe('denied');
+    expect(api.getSnapshot().pendingId).toBe('b'); expect(api.getSnapshot().activeId).toBe('b');
+    n.r(true);
+    expect(await closing).toBe('ok');
+    expect(api.getSnapshot().pendingId).toBeUndefined(); expect(api.getSnapshot().activeId).toBe('b');
+  });
 });

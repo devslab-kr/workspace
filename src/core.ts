@@ -12,7 +12,11 @@ export interface Snapshot<S extends Screen = Screen, D = undefined> {
 }
 export type Result = 'ok' | 'unknown' | 'limit' | 'denied' | 'cancelled' | 'stale';
 /** A running beforeActivate call: from open/select, a retained-first open, or a closed tab's neighbour. */
-interface Check { readonly id: string; readonly kind: 'open' | 'retained' | 'neighbour' }
+interface Check {
+  readonly id: string; readonly kind: 'open' | 'retained' | 'neighbour';
+  /** A close-neighbour check still running underneath this open; it is the running check again if this one ends without committing. */
+  under?: Check;
+}
 export interface Options<S extends Screen = Screen, D = undefined> {
   /** The starting list. `reset()` returns the live registry to exactly this list. */
   screens?: readonly S[];
@@ -98,7 +102,8 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
    */
   function settle(mine: Check | undefined, refuse: boolean) {
     const ours = mine !== undefined && check === mine;
-    if (ours) check = undefined;
+    if (ours) check = mine.under;
+    else if (mine !== undefined && check?.under === mine) check.under = undefined;
     const clear = refuse && mine !== undefined && state.activeId === mine.id;
     if (ours || clear) commit(state.tabs, clear ? undefined : state.activeId);
   }
@@ -118,7 +123,8 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
   function revoke(ids: readonly string[]) {
     for (const id of ids) { live.delete(id); closing.delete(id); revocations.set(id, (revocations.get(id) ?? 0) + 1); }
     const removed = new Set(ids);
-    if (check && removed.has(check.id)) check = undefined;
+    if (check?.under && removed.has(check.under.id)) check.under = undefined;
+    if (check && removed.has(check.id)) check = check.under;
     const activeId = state.activeId !== undefined && removed.has(state.activeId) ? undefined : state.activeId;
     commit(state.tabs.filter(t => !removed.has(t.id)), activeId, state.switcherOpen, liveScreens());
   }
@@ -142,8 +148,11 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
     if (guard) {
       // Commit, listeners, then the guard call, with nothing awaited in between.
       const first = retained && options.showRetainedFirst === true;
-      mine = check = { id, kind: first ? 'retained' : 'open' };
-      if (first && state.activeId !== id) activations++;
+      const shows = first && state.activeId !== id;
+      // A running close-neighbour check keeps running underneath, unless this open shows another screen (which overtakes it).
+      const under = shows ? undefined : check?.kind === 'neighbour' ? check : check?.under;
+      mine = check = { id, kind: first ? 'retained' : 'open', under };
+      if (shows) activations++;
       commit(state.tabs, first ? id : state.activeId);
     }
     let allowed: boolean | undefined;
@@ -159,11 +168,15 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
     commit(tabs, id);
     return 'ok';
   }
+  const homeId = () => typeof options.home === 'function' ? options.home() : options.home;
+  /** Closing the only tab is refused when it is the home screen. */
+  const isLastHome = (id: string) => state.tabs.length === 1 && state.tabs[0].id === id && homeId() === id;
   function close(id: string): Promise<Result> {
     const existing = closing.get(id);
     if (existing) return existing;
     const task = performClose(id).finally(() => { if (closing.get(id) === task) closing.delete(id); });
-    closing.set(id, task);
+    // Without beforeClose the tab may already be gone; a reopened instance must get its own close.
+    if (state.tabs.some(t => t.id === id)) closing.set(id, task);
     return task;
   }
   /**
@@ -173,21 +186,30 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
   async function performClose(id: string): Promise<Result> {
     const tab = state.tabs.find(t => t.id === id);
     if (!tab) return 'unknown';
+    if (isLastHome(id)) return 'cancelled';
     const request = ++generation;
-    const allowed = await options.beforeClose?.(id);
+    // No await without beforeClose: the close commits in the caller's synchronous step.
+    const allowed = options.beforeClose ? await options.beforeClose(id) : true;
     // A revocation or renewal replaced or removed this tab while its guard ran.
     if (request !== generation || state.tabs.find(t => t.id === id) !== tab) return 'stale';
-    if (allowed === false) return 'cancelled';
+    if (allowed === false || isLastHome(id)) return 'cancelled';
     const wasActive = state.activeId === id;
     const index = state.tabs.findIndex(t => t.id === id);
     const next = wasActive ? (state.tabs[index + 1] ?? state.tabs[index - 1])?.id : state.activeId;
     const guard = options.beforeActivate;
     const neighbour: Check | undefined = wasActive && next && guard ? { id: next, kind: 'neighbour' } : undefined;
     // Any open check is already overtaken (this close moved the generation); an earlier close's neighbour check is not.
-    check = neighbour ?? (check?.kind === 'neighbour' ? check : undefined);
+    const kept = check?.kind === 'neighbour' ? check : check?.under;
+    // A kept check of the tab being closed no longer shows anything.
+    check = neighbour ?? (kept?.id === id ? undefined : kept);
     commit(state.tabs.filter(t => t.id !== id), next);
     // The tab is gone: a reopened instance must get its own close, not this one.
     closing.delete(id);
+    // The workspace emptied: open home through its guard, started in this same synchronous step.
+    if (state.tabs.length === 0) {
+      const home = homeId();
+      if (home !== undefined && home !== id) return open(home);
+    }
     if (!neighbour || !guard || !next) return 'ok';
     // A later activation, show, reset, revocation or close of the shown neighbour owns the active screen; closing other tabs meanwhile does not.
     const shown = activations;
@@ -237,14 +259,14 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
       if (shown.result === 'ok') commit(shown.tabs, shown.activeId);
       return shown.result;
     },
-    canClose: id => state.tabs.some(t => t.id === id),
+    canClose: id => state.tabs.some(t => t.id === id) && !isLastHome(id),
     showSwitcher() { if (state.tabs.length) commit(state.tabs, state.activeId, true); },
     hideSwitcher() { if (state.switcherOpen) commit(state.tabs, state.activeId, false); },
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     cancelPending() {
       generation++; closing.clear();
       // Open checks are now stale; a close's neighbour check keeps running, as in 0.2.0.
-      if (check && check.kind !== 'neighbour') { check = undefined; commit(state.tabs, state.activeId); }
+      if (check && check.kind !== 'neighbour') { check = check.under; commit(state.tabs, state.activeId); }
     },
     reset() { generation++; activations++; closing.clear(); check = undefined; live = new Map(initial.map(s => [s.id, s])); commit([], undefined, false, initial); }
   };
