@@ -67,9 +67,42 @@ await controller.open('orders');
 // <Workspace controller={controller} screens={presentationScreens} menu={false} />
 ```
 
-Use `useWorkspace().open(id)` inside your existing menu. Pass a controller only when the app needs external access. Controller mode and standalone options are mutually exclusive, and presentation IDs must match. The screen registry is construction-time; remount for a different registry or app identity.
+Use `useWorkspace().open(id)` inside your existing menu. Pass a controller only when the app needs external access. Controller mode and standalone options are mutually exclusive. With a controller, the controller's list is the registry; the `screens` prop only supplies components, by id, for controller definitions that have none. Options and the `screens` prop are read once: screens change at run time through the controller ([below](#registering-screens-at-run-time)). Remount for a different app identity.
 
-Commands: `open`, `select` (already-open tabs only), `close`, `showSwitcher`, `hideSwitcher`, `reset`. Transitions return `ok`, `unknown`, `limit`, `denied`, `cancelled` or `stale`. For `open` and `select`, a refused or throwing guard keeps the selected page. Only the latest valid transition commits. Closing does not wait for the next screen: after `beforeClose` allows it, the tab leaves at once and its neighbour shows straight away, then the neighbour's `beforeActivate` runs. If that guard refuses, `close` resolves `denied` and no screen is active: the empty state shows and the first remaining tab stays in the Tab order. If it throws, `close` rejects with the same empty state. If a later `open` or `select` commits, `reset()` runs, or the shown neighbour is closed first, the check no longer applies and `close` resolves `stale`. Focus moves to the shown tab when the closed control disappears, but not out of a page the user has already moved into. `reset()` immediately discards all work and invalidates pending guards: use it for logout/company changes. It bypasses dirty-close confirmation deliberately.
+Commands: `open`, `select` (already-open tabs only), `close`, `showSwitcher`, `hideSwitcher`, `cancelPending`, `reset`, and the registry methods below. Transitions return `ok`, `unknown`, `limit`, `denied`, `cancelled` or `stale`. For `open` and `select`, a refused or throwing guard keeps the selected page, unless the screen being checked is the one on display (re-opening the active screen, `showRetainedFirst`, or a screen the router already showed): then no screen is active. Only the latest valid transition commits. Closing does not wait for the next screen: after `beforeClose` allows it, the tab leaves at once and its neighbour shows straight away, then the neighbour's `beforeActivate` runs. If that guard refuses, `close` resolves `denied` and no screen is active: the empty state shows and the first remaining tab stays in the Tab order. If it throws, `close` rejects with the same empty state. If a later `open` or `select` commits, `show()` makes another screen active, `reset()` runs, or the shown neighbour is closed or revoked first, the check no longer applies and `close` resolves `stale`. A close still waits one microtask before it commits, as in 0.2.0, even without `beforeClose`. Focus moves to the shown tab when the closed control disappears, but not out of a page the user has already moved into. `reset()` immediately discards all work and invalidates pending guards: use it for logout/company changes. It bypasses dirty-close confirmation deliberately.
+
+## Registering screens at run time
+
+The controller keeps a live registry. The `screens` option (or standalone prop) is optional and is only the starting list. An app router adds a screen when its route succeeds and removes screens when access is lost. Change screens through the controller (`useWorkspace()` inside the workspace, or the controller you pass in), not by changing the `screens` prop.
+
+```ts
+import { createWorkspace, type AdapterScreen } from '@devslab/workspace/solid';
+
+const controller = createWorkspace<AdapterScreen, { draft: string }>({
+  home: 'dashboard',
+  createTabData: () => ({ draft: '' }),
+  beforeActivate: id => navigateAndReport(id), // the route registers the screen before this resolves
+});
+// In the router, once a route is allowed:
+controller.register({ id: path, title, component: Page }, { show: true });
+// When permissions change:
+controller.retainOnly(allowedIds);
+```
+
+- `register(screen, { show?, renew? })` adds or updates a definition and returns `ok` or `limit`. Updating an open screen changes its title and the definition the page reads, and keeps the same tab, page and data. A tab keeps the component it was created with; `{ renew: true }` replaces an open tab in place (same slot and position, a new instance and fresh data) and disposes the old page. Over the tab cap the definition is still stored and only the tab is refused.
+- `show(id)` makes a registered screen active and returns `ok`, `unknown` or `limit`. **`show()` and `register(…, { show: true })` run no guard.** They are meant for the app's router, which has already allowed the route. Showing the screen whose check is running is part of that check; showing another screen overtakes it (`stale`).
+- `unregister(id)` and `retainOnly(ids)` are revocation, not closing. They remove the definition and its tab without `beforeClose` and without showing a neighbour; if the active tab goes, no screen is active until the app shows one. A later `open(id)` asks the guard again. Running checks, opens and closes of removed screens resolve `stale`. `retainOnly` returns the removed ids. `reset()` closes every tab and restores the starting list exactly.
+- `open(id)` of an id that is not registered: without `beforeActivate` it returns `unknown`. With a guard it checks the tab cap, runs the guard, then reads the registry: if the route registered the screen meanwhile it opens, otherwise `unknown`.
+- `home` (an id, or a function returning one): closing the only tab when it is home is refused (`cancelled`) and `canClose(id)` is false, so packaged close buttons are disabled and Delete does nothing. Closing the last tab of another screen opens home through its guard. Packaged parts re-read the disabled state on a snapshot change, so a `home` function that reads outside state takes effect at the next change.
+- `showRetainedFirst: true`: `open(id)` of an open tab shows it at once and checks it afterwards; a refusal leaves no screen active.
+- `createTabData(screen)` runs once per tab instance (a new tab or a renewal). Its value is `Tab.data` and `useWorkspacePage().data`. Without it, `data` is `undefined` (the type parameter defaults to `undefined`).
+- `snapshot.pendingId` is the id whose `beforeActivate` is running, for every kind of check. Packaged tabs mark it `aria-busy`. For an id with no tab yet, the optional `slots.pendingTab(id)` renders a `pending` part after the default tab strip's close buttons, outside the tab list; without that slot nothing is rendered.
+- `getScreen(id)`, `getTab(id)` and `canClose(id)` read the current state.
+- Pages: `useWorkspacePage()` returns `{ id, active, data, screen }`; `screen` is the live definition, so its title updates without remounting. Packaged panels still render the component with no props.
+- Adapter definitions are `AdapterScreen` (`component` optional). With a controller, its list wins and the `screens` prop fills missing components by id. A screen with no component in either renders an empty panel; a component added later takes effect only through `renew`.
+- The default menu lists the `screens` prop when it is non-empty, otherwise the live registry. `menus` items may name screens that are not registered yet; give those a `label`.
+- Listeners and `onChange` run synchronously inside every commit, including while a guard runs (`pendingId` changes). **They must not register or show screens in reaction to a snapshot change**; registration belongs to the router.
+- SSR: register (and show) on a request-local controller before rendering, one controller per request, and replay the same registrations in the same order on the client so slots match. Solid, Svelte and Vue also accept registration during render, before the tab parts render; Vue then renders that tab with `aria-selected="false"` until hydration, without a mismatch. React supports registration before render only.
 
 ## Styling and composition
 
@@ -94,9 +127,9 @@ Pages can optionally use `useWorkspacePage()` and `useActiveEffect()` to run app
 
 Shortcuts skip editable elements, IME composition, repeat events and app dialogs. They apply only to events originating in the workspace. Disable with `shortcuts={false}` or configure `shortcuts={{switcher:'Ctrl+q',slots:['Alt+1','Alt+2']}}`. Set `dir` explicitly for SSR RTL; otherwise adapters inherit ambient direction after mount.
 
-Default screens open after mounting, so default SSR output is empty. Preopen a request-local controller before SSR to render visited pages. Set `dir` explicitly for server RTL. No Next/Nuxt/SvelteKit integration is claimed.
+Default screens open after mounting, so default SSR output is empty. Preopen a request-local controller before SSR to render visited pages (see the registration rule above). Set `dir` explicitly for server RTL. No Next/Nuxt/SvelteKit integration is claimed.
 
-`createHistoryWorkspace(options, browserHistory(window))` optionally connects initial URLs and browser back/forward. Supply `screenFromUrl` and `urlForScreen`; the returned `{controller,ready,dispose}` uses the same activation guard before showing a destination. Rejected back navigation restores the last accepted URL with replaceState, without adding an entry. App selection pushes only a changed URL. Closing the active tab pushes the neighbour's URL as soon as it shows, before its guard finishes. If that guard refuses, the URL stays on the refused screen and remains the last accepted URL; loading that URL again runs the guard again. Disposal removes the history listener and resets the controller. The history adapter is synchronous; TanStack/React Router loaders and their async cancellation remain app-owned. A navigation guard bridge alone does not implement an async router integration.
+`createHistoryWorkspace(options, browserHistory(window))` optionally connects initial URLs and browser back/forward. Supply `screenFromUrl` and `urlForScreen`; the returned `{controller,ready,dispose}` uses the same activation guard before showing a destination. Rejected back navigation restores the last accepted URL with replaceState, without adding an entry. App selection pushes only a changed URL. Closing the active tab pushes the neighbour's URL as soon as it shows, before its guard finishes. If that guard refuses, the URL stays on the refused screen and remains the last accepted URL; loading that URL again runs the guard again. `sync()` reads the current URL again and opens its screen. With a guard, back/forward to an id that is not registered runs the guard, and the registry is read after it. Disposal removes the history listener and resets the controller, dropping run-time registrations. Do not combine the history adapter with `show()` from another router: one URL owner per workspace. The history adapter is synchronous; TanStack/React Router loaders and their async cancellation remain app-owned. A navigation guard bridge alone does not implement an async router integration.
 
 ## Verification
 
@@ -119,7 +152,7 @@ import { RetainedPanels } from '@devslab/workspace/solid';
 </RetainedPanels>
 ```
 
-Keep each item object stable to preserve its component owner. Removing or replacing that object disposes its page; selecting another item retains it. This is a separate integration surface from the fixed `Workspace` screen registry and supplies no router, authorization store or data cache. Gate page-owned portals with the app's activity context. Native attributes are forwarded through `panelProps`; activity always controls `hidden` and `inert`.
+Keep each item object stable to preserve its component owner. Removing or replacing that object disposes its page; selecting another item retains it. This is a separate integration surface from the `Workspace` controller registry and supplies no router, authorization store or data cache. Gate page-owned portals with the app's activity context. Native attributes are forwarded through `panelProps`; activity always controls `hidden` and `inert`.
 `controller.cancelPending()` invalidates outstanding activation/close guards without changing retained tabs, active page, or switcher state. A close that has already removed its tab is not undone; its check of the shown neighbour still applies. The URL adapter calls it on every new URL intent, including unmapped, unknown, and tab-limited destinations, so an older guard cannot restore an obsolete URL. Switcher-only changes do not push history entries.
 
 ## Contributing
