@@ -99,3 +99,43 @@ describe('workspace state', () => {
     resolves[1](true); expect(await newClose).toBe('ok');
   });
 });
+describe('dynamic registry', () => {
+  it('starts empty, registers at run time and lists screens in registration order', async () => {
+    const api = createWorkspace();
+    expect(await api.open('a')).toBe('unknown');
+    expect(api.register({ id: 'a', title: 'A' })).toBe('ok'); api.register({ id: 'b', title: 'B' });
+    expect(api.getSnapshot().screens.map(s => s.id)).toEqual(['a', 'b']);
+    expect(await api.open('a')).toBe('ok');
+    expect(() => api.register({ id: '', title: 'x' })).toThrow();
+  });
+  it('updating an open screen keeps its tab object and data, and notifies', async () => {
+    let made = 0; const api = createWorkspace({ screens, createTabData: () => ({ n: ++made }) });
+    await api.open('a'); const tab = api.getTab('a')!; let calls = 0; api.subscribe(() => calls++);
+    for (let i = 0; i < 3; i++) api.register({ id: 'a', title: `A${i}` });
+    expect(api.getTab('a')).toBe(tab); expect(tab.data).toEqual({ n: 1 }); expect(made).toBe(1);
+    expect(api.getScreen('a')!.title).toBe('A2'); expect(calls).toBe(3);
+  });
+  it('renew replaces an open tab in place with a new instance and fresh data', async () => {
+    let made = 0; const api = createWorkspace({ screens, createTabData: () => ++made });
+    await api.open('a'); await api.open('b'); const old = api.getTab('a')!;
+    api.register({ id: 'a', title: 'A' }, { renew: true });
+    const renewed = api.getTab('a')!;
+    expect(renewed).not.toBe(old); expect(renewed.slot).toBe(old.slot); expect(renewed.instance).toBeGreaterThan(old.instance);
+    expect(renewed.data).toBe(3); expect(api.getSnapshot().tabs.map(t => t.id)).toEqual(['a', 'b']);
+  });
+  it('revocation removes definitions and tabs without guards and leaves nothing active', async () => {
+    let closeGuard = 0; const api = createWorkspace({ screens, beforeClose: () => { closeGuard++; return false; } });
+    await api.open('a'); await api.open('b');
+    expect(api.retainOnly(new Set(['a', 'zzz']))).toEqual(['b', 'c', 'd']);
+    expect(api.getSnapshot().activeId).toBeUndefined(); expect(api.getSnapshot().tabs.map(t => t.id)).toEqual(['a']);
+    expect(api.unregister('a')).toBe(true); expect(api.unregister('a')).toBe(false);
+    expect(closeGuard).toBe(0); expect(api.getScreen('a')).toBeUndefined();
+    function* once() { yield 'x'; } expect(api.retainOnly(once())).toEqual([]);
+  });
+  it('reset restores the exact starting list', async () => {
+    const api = createWorkspace({ screens });
+    api.register({ id: 'e', title: 'E' }); api.register({ id: 'a', title: 'changed' }); api.unregister('b');
+    api.reset();
+    expect(api.getSnapshot().screens).toEqual(screens); expect(api.getSnapshot().tabs).toEqual([]);
+  });
+});
