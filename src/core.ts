@@ -11,6 +11,8 @@ export interface Snapshot<S extends Screen = Screen, D = undefined> {
   readonly switcherOpen: boolean;
 }
 export type Result = 'ok' | 'unknown' | 'limit' | 'denied' | 'cancelled' | 'stale';
+/** A running beforeActivate call: from open/select, a retained-first open, or a closed tab's neighbour. */
+interface Check { readonly id: string; readonly kind: 'open' | 'retained' | 'neighbour' }
 export interface Options<S extends Screen = Screen, D = undefined> {
   /** The starting list. `reset()` returns the live registry to exactly this list. */
   screens?: readonly S[];
@@ -71,19 +73,52 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
   const revocations = new Map<string, number>();
   const listeners = new Set<(state: Snapshot<S, D>) => void>();
   const closing = new Map<string, Promise<Result>>();
+  /** The running check (a beforeActivate call); its id is the snapshot's pendingId. */
+  let check: Check | undefined;
   function newTab(screen: S, slot: number): Tab<D> {
     return Object.freeze({ id: screen.id, slot, instance: ++instance, data: options.createTabData?.(screen) as D });
   }
+  /** `tabs` with `screen` open (a new tab takes the lowest free slot), or undefined when the cap is reached. */
+  function withTab(tabs: readonly Tab<D>[], screen: S): readonly Tab<D>[] | undefined {
+    if (tabs.some(t => t.id === screen.id)) return tabs;
+    if (tabs.length >= max) return undefined;
+    const used = new Set(tabs.map(t => t.slot));
+    let slot = 1;
+    while (used.has(slot)) slot++;
+    return [...tabs, newTab(screen, slot)];
+  }
   function commit(tabs: readonly Tab<D>[], activeId?: string, switcherOpen = state.switcherOpen, screens = state.screens) {
-    state = Object.freeze({ tabs: Object.freeze([...tabs]), screens, activeId, switcherOpen: switcherOpen && tabs.length > 0 });
+    state = Object.freeze({ tabs: Object.freeze([...tabs]), screens, activeId, pendingId: check?.id, switcherOpen: switcherOpen && tabs.length > 0 });
     for (const listener of listeners) listener(state);
     options.onChange?.(state);
+  }
+  /**
+   * Ends the check `mine` if it is still the running one. With `refuse`, a checked screen that is on
+   * display is cleared (nothing active); one that is not on display stays as it is.
+   */
+  function settle(mine: Check | undefined, refuse: boolean) {
+    const ours = mine !== undefined && check === mine;
+    if (ours) check = undefined;
+    const clear = refuse && mine !== undefined && state.activeId === mine.id;
+    if (ours || clear) commit(state.tabs, clear ? undefined : state.activeId);
+  }
+  /**
+   * A router show of `screen` over `tabs`. Showing the active screen does nothing; showing the screen
+   * being checked is part of that check; showing any other screen overtakes running checks (stale).
+   */
+  function routerShow(screen: S, tabs: readonly Tab<D>[]): { result: Result; tabs: readonly Tab<D>[]; activeId?: string } {
+    if (state.activeId === screen.id) return { result: 'ok', tabs, activeId: state.activeId };
+    const next = withTab(tabs, screen);
+    if (!next) return { result: 'limit', tabs, activeId: state.activeId };
+    if (check?.id !== screen.id) { generation++; activations++; check = undefined; }
+    return { result: 'ok', tabs: next, activeId: screen.id };
   }
   const liveScreens = () => Object.freeze([...live.values()]);
   /** Drop the given ids' definitions and tabs in one commit. No guard runs and no neighbour is shown. */
   function revoke(ids: readonly string[]) {
     for (const id of ids) { live.delete(id); closing.delete(id); revocations.set(id, (revocations.get(id) ?? 0) + 1); }
     const removed = new Set(ids);
+    if (check && removed.has(check.id)) check = undefined;
     const activeId = state.activeId !== undefined && removed.has(state.activeId) ? undefined : state.activeId;
     commit(state.tabs.filter(t => !removed.has(t.id)), activeId, state.switcherOpen, liveScreens());
   }
@@ -91,24 +126,35 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
     if (!state.tabs.some(tab => tab.id === id)) return Promise.resolve('unknown');
     return open(id);
   }
+  /**
+   * With a guard, an id that is not registered yet is still checked (the cap first, a new tab), and
+   * the registry is read after the guard: the router may have registered the screen meanwhile.
+   */
   async function open(id: string): Promise<Result> {
-    if (!live.has(id)) return 'unknown';
-    if (!state.tabs.some(t => t.id === id) && state.tabs.length >= max) return 'limit';
+    const guard = options.beforeActivate;
+    if (!guard && !live.has(id)) return 'unknown';
+    const retained = state.tabs.some(t => t.id === id);
+    if (!retained && state.tabs.length >= max) return 'limit';
     const request = ++generation;
     const revoked = revocations.get(id);
-    const allowed = await options.beforeActivate?.(id);
-    if (request !== generation || revoked !== revocations.get(id)) return 'stale';
-    if (allowed === false) return 'denied';
-    const screen = live.get(id);
-    if (!screen) return 'stale';
-    let tabs = state.tabs;
-    if (!tabs.some(t => t.id === id)) {
-      if (tabs.length >= max) return 'limit';
-      const used = new Set(tabs.map(t => t.slot));
-      let slot = 1;
-      while (used.has(slot)) slot++;
-      tabs = [...tabs, newTab(screen, slot)];
+    const current = () => request === generation && revoked === revocations.get(id);
+    let mine: Check | undefined;
+    if (guard) {
+      // Commit, listeners, then the guard call, with nothing awaited in between.
+      const first = retained && options.showRetainedFirst === true;
+      mine = check = { id, kind: first ? 'retained' : 'open' };
+      if (first && state.activeId !== id) activations++;
+      commit(state.tabs, first ? id : state.activeId);
     }
+    let allowed: boolean | undefined;
+    try { allowed = await guard?.(id); }
+    catch (error) { settle(mine, current()); throw error; }
+    if (!current()) { settle(mine, false); return 'stale'; }
+    if (allowed === false) { settle(mine, true); return 'denied'; }
+    const screen = live.get(id);
+    const tabs = screen && withTab(state.tabs, screen);
+    if (!tabs) { settle(mine, false); return screen ? 'limit' : 'unknown'; }
+    if (mine && check === mine) check = undefined;
     activations++;
     commit(tabs, id);
     return 'ok';
@@ -135,20 +181,24 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
     const wasActive = state.activeId === id;
     const index = state.tabs.findIndex(t => t.id === id);
     const next = wasActive ? (state.tabs[index + 1] ?? state.tabs[index - 1])?.id : state.activeId;
+    const guard = options.beforeActivate;
+    const neighbour: Check | undefined = wasActive && next && guard ? { id: next, kind: 'neighbour' } : undefined;
+    // Any open check is already overtaken (this close moved the generation); an earlier close's neighbour check is not.
+    check = neighbour ?? (check?.kind === 'neighbour' ? check : undefined);
     commit(state.tabs.filter(t => t.id !== id), next);
     // The tab is gone: a reopened instance must get its own close, not this one.
     closing.delete(id);
-    if (!wasActive || !next || !options.beforeActivate) return 'ok';
-    // A later activation, reset or close of the shown neighbour owns the active screen; closing other tabs meanwhile does not.
+    if (!neighbour || !guard || !next) return 'ok';
+    // A later activation, show, reset, revocation or close of the shown neighbour owns the active screen; closing other tabs meanwhile does not.
     const shown = activations;
-    const current = () => activations === shown && state.activeId === next;
+    const revoked = revocations.get(next);
+    const current = () => activations === shown && state.activeId === next && revocations.get(next) === revoked;
     let canActivate: boolean;
-    try { canActivate = (await options.beforeActivate(next)) !== false; }
-    catch (error) { if (current()) commit(state.tabs, undefined); throw error; }
-    if (!current()) return 'stale';
-    if (canActivate) return 'ok';
-    commit(state.tabs, undefined);
-    return 'denied';
+    try { canActivate = (await guard(next)) !== false; }
+    catch (error) { settle(neighbour, current()); throw error; }
+    if (!current()) { settle(neighbour, false); return 'stale'; }
+    settle(neighbour, !canActivate);
+    return canActivate ? 'ok' : 'denied';
   }
   function register(screen: S, opts?: { show?: boolean; renew?: boolean }): Result {
     if (!screen?.id) throw new Error('Screen IDs must be nonempty');
@@ -163,8 +213,10 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
         tabs = tabs.map((t, i) => i === index ? newTab(definition, t.slot) : t);
       }
     }
-    commit(tabs, state.activeId, state.switcherOpen, liveScreens());
-    return 'ok';
+    // Over the cap the definition is still stored (the router allowed it); only the tab is refused.
+    const shown = opts?.show ? routerShow(definition, tabs) : { result: 'ok' as Result, tabs, activeId: state.activeId };
+    commit(shown.tabs, shown.activeId, state.switcherOpen, liveScreens());
+    return shown.result;
   }
   return {
     getSnapshot: () => state, getScreens: () => state.screens, open, select, close, register,
@@ -177,12 +229,23 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
       if (removed.length) revoke(removed);
       return removed;
     },
-    show() { throw new Error('not implemented'); },
+    show(id) {
+      const screen = live.get(id);
+      if (!screen) return 'unknown';
+      if (state.activeId === id) return 'ok';
+      const shown = routerShow(screen, state.tabs);
+      if (shown.result === 'ok') commit(shown.tabs, shown.activeId);
+      return shown.result;
+    },
     canClose: id => state.tabs.some(t => t.id === id),
     showSwitcher() { if (state.tabs.length) commit(state.tabs, state.activeId, true); },
     hideSwitcher() { if (state.switcherOpen) commit(state.tabs, state.activeId, false); },
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    cancelPending() { generation++; closing.clear(); },
-    reset() { generation++; activations++; closing.clear(); live = new Map(initial.map(s => [s.id, s])); commit([], undefined, false, initial); }
+    cancelPending() {
+      generation++; closing.clear();
+      // Open checks are now stale; a close's neighbour check keeps running, as in 0.2.0.
+      if (check && check.kind !== 'neighbour') { check = undefined; commit(state.tabs, state.activeId); }
+    },
+    reset() { generation++; activations++; closing.clear(); check = undefined; live = new Map(initial.map(s => [s.id, s])); commit([], undefined, false, initial); }
   };
 }

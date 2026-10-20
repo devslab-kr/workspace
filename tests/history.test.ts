@@ -1,5 +1,11 @@
 import { expect, it } from 'vitest';
 import { createHistoryWorkspace } from '../src/history';
+import type { Snapshot } from '../src/core';
+/** The retained pages and activity are untouched and no check is left pending (pendingId snapshots may come and go). */
+function expectRetained(now: Snapshot, retained: Snapshot) {
+  expect(now.tabs).toEqual(retained.tabs); now.tabs.forEach((tab, i) => expect(tab).toBe(retained.tabs[i]));
+  expect(now.activeId).toBe(retained.activeId); expect(now.pendingId).toBeUndefined();
+}
 function memoryHistory() {
   let url = '/a'; const pushed: string[] = []; const replaced: string[] = []; const listeners = new Set<() => void>();
   return { read: () => url, push: (next: string) => { pushed.push(next); url = next; }, replace: (next: string) => { replaced.push(next); url = next; },
@@ -19,13 +25,13 @@ it('initial URL and app activation synchronize without duplicate entries; denial
 });
 it.each(['/external', '/missing'])('a newer unmapped or unknown URL cancels an older guard: %s', async next => {
   const history = memoryHistory(); let resolve!: (allowed: boolean) => void;
-  const snapshots: unknown[] = [];
+  const snapshots: Snapshot[] = [];
   const bridge = createHistoryWorkspace({ screens: ['a', 'b'].map(id => ({ id, title: id })), screenFromUrl: url => url === '/external' ? undefined : url.slice(1), urlForScreen: id => `/${id}`, beforeActivate: id => id === 'b' ? new Promise<boolean>(done => { resolve = done; }) : true, onChange: snapshot => snapshots.push(snapshot) }, history);
   await bridge.ready; const retained = bridge.controller.getSnapshot();
   history.move('/b'); const pending = bridge.sync(); history.move(next); const newer = await bridge.sync();
   expect(newer).toBe(next === '/external' ? undefined : 'unknown');
   resolve(true); expect(await pending).toBe('stale');
-  expect(bridge.controller.getSnapshot()).toBe(retained); expect(snapshots).toHaveLength(1); expect(history.pushed).toEqual([]);
+  expectRetained(bridge.controller.getSnapshot(), retained); for (const snapshot of snapshots.slice(1)) { expect(snapshot.tabs).toEqual(retained.tabs); expect(snapshot.activeId).toBe(retained.activeId); } expect(history.pushed).toEqual([]);
   expect(history.read()).toBe(next === '/external' ? '/external' : '/a');
   bridge.controller.showSwitcher(); bridge.controller.hideSwitcher();
   expect(history.pushed).toEqual([]); expect(history.read()).toBe(next === '/external' ? '/external' : '/a');
@@ -36,7 +42,7 @@ it('a newer URL blocked by the tab limit cancels pending activation without disp
   const bridge = createHistoryWorkspace({ screens: ['a', 'b'].map(id => ({ id, title: id })), maxTabs: 1, screenFromUrl: url => url.slice(1), urlForScreen: id => `/${id}`, beforeActivate: () => pendingGuard ? new Promise<boolean>(done => { resolve = done; }) : true }, history);
   await bridge.ready; const retained = bridge.controller.getSnapshot(); pendingGuard = true;
   history.move('/a'); const pending = bridge.sync(); history.move('/b'); expect(await bridge.sync()).toBe('limit');
-  resolve(true); expect(await pending).toBe('stale'); expect(bridge.controller.getSnapshot()).toBe(retained); expect(history.read()).toBe('/a'); expect(history.pushed).toEqual([]);
+  resolve(true); expect(await pending).toBe('stale'); expectRetained(bridge.controller.getSnapshot(), retained); expect(history.read()).toBe('/a'); expect(history.pushed).toEqual([]);
   bridge.dispose();
 });
 it('URL intent invalidates a pending close and allows a fresh close for the retained page', async () => {

@@ -139,3 +139,147 @@ describe('dynamic registry', () => {
     expect(api.getSnapshot().screens).toEqual(screens); expect(api.getSnapshot().tabs).toEqual([]);
   });
 });
+describe('checks and show', () => {
+  const gate = () => { let r!: (v: boolean) => void; const p = new Promise<boolean>(x => { r = x; }); return { p, r }; };
+  const tick = () => new Promise(r => setTimeout(r, 0));
+  it('an unregistered id opens when its guard registers it, and is unknown otherwise', async () => {
+    const api = createWorkspace({ beforeActivate: id => { api.register({ id, title: id }); return true; } });
+    expect(await api.open('/x 1')).toBe('ok');
+    expect(api.getTab('/x 1')).toBeDefined(); expect(api.getSnapshot().activeId).toBe('/x 1');
+    const silent = createWorkspace({ beforeActivate: () => true });
+    expect(await silent.open('x')).toBe('unknown'); expect(silent.getSnapshot().tabs).toEqual([]);
+    let calls = 0; const unguarded = createWorkspace({ onChange: () => calls++ });
+    expect(await unguarded.open('x')).toBe('unknown'); expect(calls).toBe(0);
+  });
+  it('checks the cap before the guard for an unregistered id', async () => {
+    let calls = 0;
+    const api = createWorkspace({ screens, maxTabs: 1, beforeActivate: id => { if (id === 'new') calls++; return true; } });
+    await api.open('a');
+    expect(await api.open('new')).toBe('limit'); expect(calls).toBe(0);
+  });
+  it('the router shows the checked screen inside the guard; the guard answer still decides', async () => {
+    for (const allowed of [true, false]) {
+      const g = gate(); const s = { id: 's', title: 'S' };
+      const api = createWorkspace({ beforeActivate: async () => { api.register(s, { show: true }); return g.p; } });
+      const opening = api.open('s');
+      expect(api.getSnapshot().activeId).toBe('s');
+      g.r(allowed);
+      expect(await opening).toBe(allowed ? 'ok' : 'denied');
+      expect(api.getSnapshot().activeId).toBe(allowed ? 's' : undefined);
+      expect(api.getScreen('s')).toBeDefined(); expect(api.getTab('s')).toBeDefined();
+    }
+  });
+  it('a refusal for a screen that is not on display changes nothing', async () => {
+    const api = createWorkspace({ screens, beforeActivate: id => id !== 'b' });
+    await api.open('a');
+    expect(await api.open('b')).toBe('denied'); expect(api.getSnapshot().activeId).toBe('a');
+  });
+  it('showing another screen overtakes a pending open and a pending close-neighbour check', async () => {
+    const g = gate(); let held = false;
+    const api = createWorkspace({ screens, beforeActivate: id => held && id === 'b' ? g.p : true });
+    await api.open('a'); await api.open('c'); await api.select('a'); held = true;
+    const opening = api.open('b');
+    expect(api.show('c')).toBe('ok'); g.r(true);
+    expect(await opening).toBe('stale'); expect(api.getSnapshot().activeId).toBe('c');
+    const n = gate(); held = false;
+    const api2 = createWorkspace({ screens, beforeActivate: id => held && id === 'b' ? n.p : true });
+    for (const id of ['a', 'b', 'c']) await api2.open(id);
+    await api2.select('a'); held = true;
+    const closing = api2.close('a'); await tick();
+    expect(api2.getSnapshot().activeId).toBe('b');
+    expect(api2.show('c')).toBe('ok'); n.r(false);
+    expect(await closing).toBe('stale'); expect(api2.getSnapshot().activeId).toBe('c');
+  });
+  it('re-registering the active screen with show overtakes nothing and keeps its tab', async () => {
+    const g = gate(); let made = 0; let held = false;
+    const api = createWorkspace({ screens, createTabData: () => ++made, beforeActivate: id => held && id === 'c' ? g.p : true });
+    await api.open('a'); const tab = api.getTab('a'); held = true;
+    const opening = api.open('c');
+    for (let i = 0; i < 3; i++) expect(api.register(screens[0], { show: true })).toBe('ok');
+    expect(api.getSnapshot().activeId).toBe('a');
+    g.r(true);
+    expect(await opening).toBe('ok'); expect(api.getSnapshot().activeId).toBe('c');
+    expect(api.getTab('a')).toBe(tab); expect(made).toBe(2);
+  });
+  it('a guard that registers and shows its screen, then throws, rejects with nothing active', async () => {
+    const api = createWorkspace({ beforeActivate: id => { api.register({ id, title: id }, { show: true }); throw new Error('route failed'); } });
+    await expect(api.open('x')).rejects.toThrow('route failed');
+    expect(api.getSnapshot().activeId).toBeUndefined();
+  });
+  it('a screen revoked during its own guard resolves stale; a kept screen still opens', async () => {
+    const g = gate();
+    const api = createWorkspace({ screens: [...screens, { id: 'x', title: 'x' }], beforeActivate: () => g.p });
+    const opening = api.open('x'); api.retainOnly([]); g.r(true);
+    expect(await opening).toBe('stale'); expect(api.getTab('x')).toBeUndefined();
+    const y = gate();
+    const kept = createWorkspace({ screens: [...screens, { id: 'y', title: 'y' }], beforeActivate: () => y.p });
+    const openingY = kept.open('y'); kept.retainOnly(['y']); y.r(true);
+    expect(await openingY).toBe('ok'); expect(kept.getSnapshot().activeId).toBe('y');
+    const again = gate();
+    const back = createWorkspace({ screens, beforeActivate: () => again.p });
+    const reopening = back.open('a'); back.unregister('a'); back.register({ id: 'a', title: 'A' }); again.r(true);
+    expect(await reopening).toBe('stale'); expect(back.getTab('a')).toBeUndefined();
+  });
+  it('a close neighbour revoked during its check resolves stale with nothing active', async () => {
+    const n = gate(); let held = false;
+    const api = createWorkspace({ screens, beforeActivate: id => held && id === 'b' ? n.p : true });
+    await api.open('a'); await api.open('b'); await api.select('a'); held = true;
+    const closing = api.close('a'); await tick();
+    expect(api.getSnapshot().activeId).toBe('b');
+    api.unregister('b'); n.r(true);
+    expect(await closing).toBe('stale'); expect(api.getSnapshot().activeId).toBeUndefined();
+  });
+  it('a close whose tab is revoked or renewed during beforeClose resolves stale and leaves the renewed tab', async () => {
+    for (const change of ['revoke', 'renew'] as const) {
+      const g = gate();
+      const api = createWorkspace({ screens, beforeClose: () => g.p });
+      await api.open('a'); await api.open('b');
+      const closing = api.close('a');
+      if (change === 'revoke') api.unregister('a'); else api.register(screens[0], { renew: true });
+      const after = api.getTab('a'); g.r(true);
+      expect(await closing).toBe('stale');
+      expect(api.getTab('a')).toBe(after);
+      if (change === 'renew') expect(after).toBeDefined();
+    }
+  });
+  it('pendingId names the checked id during open, retained-first and close-neighbour checks', async () => {
+    let g = gate(); let held = false;
+    const api = createWorkspace({ screens, showRetainedFirst: true, beforeActivate: () => held ? g.p : true });
+    await api.open('a'); await api.open('b'); held = true;
+    const opening = api.open('c'); expect(api.getSnapshot().pendingId).toBe('c');
+    g.r(true); await opening; expect(api.getSnapshot().pendingId).toBeUndefined();
+    g = gate(); const retained = api.open('a'); expect(api.getSnapshot().pendingId).toBe('a');
+    g.r(true); await retained; expect(api.getSnapshot().pendingId).toBeUndefined();
+    g = gate(); const closing = api.close('a'); await tick();
+    expect(api.getSnapshot().activeId).toBe('b'); expect(api.getSnapshot().pendingId).toBe('b');
+    g.r(true); await closing; expect(api.getSnapshot().pendingId).toBeUndefined();
+  });
+  it('showRetainedFirst shows a retained tab before its check; a refusal leaves nothing active', async () => {
+    for (const first of [true, false]) {
+      const g = gate(); let held = false;
+      const api = createWorkspace({ screens, showRetainedFirst: first, beforeActivate: () => held ? g.p : true });
+      await api.open('a'); await api.open('b'); await api.select('a'); held = true;
+      const opening = api.open('b');
+      expect(api.getSnapshot().activeId).toBe(first ? 'b' : 'a');
+      g.r(!first);
+      expect(await opening).toBe(first ? 'denied' : 'ok');
+      expect(api.getSnapshot().activeId).toBe(first ? undefined : 'b');
+    }
+  });
+  it('re-opening the active tab with a refusing guard leaves nothing active (it is on display)', async () => {
+    let refuse = false; const api = createWorkspace({ screens, beforeActivate: () => !refuse });
+    await api.open('a'); refuse = true;
+    expect(await api.open('a')).toBe('denied');
+    expect(api.getSnapshot().activeId).toBeUndefined(); expect(api.getSnapshot().tabs.map(t => t.id)).toEqual(['a']);
+  });
+  it('show and register-with-show report unknown and limit without changing tabs', async () => {
+    const api = createWorkspace({ screens, maxTabs: 1 });
+    await api.open('a');
+    expect(api.show('zzz')).toBe('unknown');
+    expect(api.show('b')).toBe('limit'); expect(api.getSnapshot().activeId).toBe('a');
+    expect(api.getSnapshot().tabs.map(t => t.id)).toEqual(['a']);
+    expect(api.register({ id: 'n', title: 'N' }, { show: true })).toBe('limit');
+    expect(api.getScreen('n')).toBeDefined(); expect(api.getTab('n')).toBeUndefined();
+    expect(api.getSnapshot().activeId).toBe('a');
+  });
+});
