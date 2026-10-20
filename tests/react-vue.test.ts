@@ -40,4 +40,16 @@ describe('native adapter SSR', () => {
     const output = await renderVue(createSSRApp({ render: () => h(VueProvider, { controller }, { default: () => [h(Registrar), h(VueTabList), h(VuePanels)] }) }));
     expect(output).toMatch(/role="tab"[^>]*>(<!--\[-->)?Orders</); expect(output).toContain('Orders page');
   });
+  it('Vue server renders leave no listener on a shared controller', async () => {
+    const Page = { render: () => h('p', 'Orders page') };
+    const Registrar = defineComponent({ setup() { useVueWorkspace().register({ id: '/orders 1', title: 'Orders', component: Page }, { show: true }); return () => null; } });
+    const controller = createWorkspace<VueAdapterScreen>(); let listeners = 0;
+    const subscribe = controller.subscribe;
+    controller.subscribe = listener => { listeners++; const stop = subscribe(listener); return () => { listeners--; stop(); }; };
+    for (let render = 0; render < 2; render++) {
+      const output = await renderVue(createSSRApp({ render: () => h(VueProvider, { controller }, { default: () => [h(Registrar), h(VueTabList), h(VuePanels)] }) }));
+      expect(output).toMatch(/role="tab"[^>]*>(<!--\[-->)?Orders</); expect(output).toContain('Orders page');
+      expect(listeners).toBe(0);
+    }
+  });
 });

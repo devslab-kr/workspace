@@ -1,4 +1,4 @@
-import { defineComponent, h, Fragment, provide, inject, shallowRef, computed, onMounted, onUnmounted, watchEffect, useId, type Component, type InjectionKey, type PropType, type Ref, type VNodeChild } from 'vue';
+import { defineComponent, h, Fragment, provide, inject, shallowRef, computed, onMounted, onUnmounted, watchEffect, useId, ssrContextKey, type Component, type InjectionKey, type PropType, type Ref, type VNodeChild } from 'vue';
 import { Tabs } from '@ark-ui/vue/tabs';
 import { Dialog } from '@ark-ui/vue/dialog';
 import { ark } from '@ark-ui/vue/factory';
@@ -48,9 +48,11 @@ const propNames = ['screens', 'menus', 'menu', 'class', 'dir', 'labels', 'unstyl
 export const WorkspaceProvider = defineComponent((props: WorkspaceProps, { slots }) => {
   const api: WorkspaceController<AdapterScreen, any> = props.controller ?? createWorkspace<AdapterScreen, any>(props);
   const components = new Map((props.screens ?? []).map(s => [s.id, s.component]));
-  const state = shallowRef(api.getSnapshot()); const direction = shallowRef<'ltr' | 'rtl'>('ltr'); const status = shallowRef(''); const root = shallowRef<HTMLDivElement | null>(null); const opener = shallowRef<HTMLElement | null>(null); const prefix = `ws-${useId()}`;
-  // Subscribed during setup, so a child that registers in its own setup, also on the server, is seen by the parts after it.
-  onUnmounted(api.subscribe(s => { state.value = s; }));
+  // Server rendering (Vue provides an SSR context only there) never unmounts, so it must not subscribe: state reads the live snapshot instead.
+  const server = inject(ssrContextKey, null) !== null;
+  const state: Ref<Snapshot<AdapterScreen, any>> = server ? { get value() { return api.getSnapshot(); } } as Ref<Snapshot<AdapterScreen, any>> : shallowRef(api.getSnapshot()); const direction = shallowRef<'ltr' | 'rtl'>('ltr'); const status = shallowRef(''); const root = shallowRef<HTMLDivElement | null>(null); const opener = shallowRef<HTMLElement | null>(null); const prefix = `ws-${useId()}`;
+  // On the client, subscribed during setup, so a child that registers in its own setup is seen by the parts after it.
+  if (!server) onUnmounted(api.subscribe(s => { state.value = s; }));
   const labels = () => ({ ...defaults, ...props.labels }); const cls = (part: WorkspacePart) => [props.unstyled ? '' : part === 'root' ? 'workspace' : `workspace-${part}`, props.classNames?.[part]].filter(Boolean).join(' ') || undefined;
   // Focus returns to the tab list after a command unless the user moved into the shown page; a close also refocuses on its immediate commit.
   function restoreFocus(onlyIfLost = false) { const element = root.value; if (!element) return; const focused = document.activeElement; if (onlyIfLost ? focused && focused !== document.body : focused instanceof HTMLElement && element.contains(focused) && focused.closest('[data-workspace-part="panel"]:not([hidden])')) return; (element.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? element.querySelector<HTMLElement>('[role="tab"]'))?.focus(); }
