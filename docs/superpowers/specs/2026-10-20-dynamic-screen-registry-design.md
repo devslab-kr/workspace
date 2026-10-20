@@ -3,7 +3,7 @@
 **English** · [한국어](2026-10-20-dynamic-screen-registry-design.ko.md)
 
 - Date: 2026-10-20
-- Status: **proposal, waiting for the owner's choice.** No package code has been written.
+- Status: **Option A chosen by the owner (2026-10-20).** Implementation follows in a separate plan.
 - Package: `@devslab/workspace` 0.2.0 (main `08ae79a`)
 - First intended consumer: fm-dental (`src/features/admin/workspace/`)
 
@@ -138,7 +138,7 @@ Instead of the app pushing screens in, the controller asks: `createWorkspace({ r
 
 Suggested order (the builder may merge steps): core rules and their tests → the four adapters, docs and CHANGELOG → 0.3.0 release → fm adoption PR under fm's own release rules.
 
-**Where the first plan stops.** The package plan ends at a merged, verified 0.3.0 pull request. Publishing to npm goes through the package's release workflow with the owner's go-ahead (`docs/releasing.md`). fm adoption is a separate, later plan: fm's `AGENTS.md` currently forbids running tests, lint, build and typecheck and limits merges, so that work can only be planned once fm's own rules allow verifying it.
+**Where the first plan stops.** The package plan ends at a merged, verified 0.3.0 pull request. Once that PR is merged, 0.3.0 is published to npm through the package's release workflow (`docs/releasing.md`) without asking again: the owner gave that approval in advance on 2026-10-20. fm adoption is a separate, later plan: fm's `AGENTS.md` currently forbids running tests, lint, build and typecheck and limits merges, so that work can only be planned once fm's own rules allow verifying it.
 
 ## 6. What fm-dental would delete if it adopted Option A
 
@@ -181,4 +181,8 @@ These came up when a reviewer read the draft as a builder. They are the author's
 
 ## 9. Decision
 
-_To be filled in with the owner's choice._
+**2026-10-20: Option A.** The owner chose the live registry inside the controller. The calls in section 7 stand unless the owner overturns one.
+
+- The owner's words: "A안으로 가는거지".
+- Release: once the 0.3.0 implementation is complete and merged, it is published to npm with no further sign-off. The owner's words: "완료되고 머지 되면 npm도 자동 출시하는거야 허락 받을 필요 없어".
+- Still separate: fm-dental adoption, under fm's own rules (section 5).
