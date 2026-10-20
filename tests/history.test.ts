@@ -80,3 +80,34 @@ it('a newer URL cancels pending back navigation and disposal invalidates pending
   history.pop('/b'); bridge.dispose(); resolves[1](true); await Promise.resolve(); await Promise.resolve();
   expect(bridge.controller.getSnapshot().tabs).toEqual([]);
 });
+it('back/forward to an unregistered id runs the guard, which may register it; a refusal restores the accepted URL', async () => {
+  const history = memoryHistory(); const calls: string[] = [];
+  const bridge = createHistoryWorkspace({ screens: [{ id: 'a', title: 'A' }], screenFromUrl: url => url.slice(1), urlForScreen: id => `/${id}`, beforeActivate: id => {
+    calls.push(id); if (id === 'x') bridge.controller.register({ id: 'x', title: 'X' }); return id !== 'y';
+  } }, history);
+  await bridge.ready;
+  history.pop('/x'); for (let step = 0; step < 4; step++) await Promise.resolve();
+  expect(calls).toEqual(['a', 'x']); expect(bridge.controller.getSnapshot().activeId).toBe('x');
+  expect(bridge.controller.getSnapshot().tabs.map(tab => tab.id)).toEqual(['a', 'x']); expect(history.pushed).toEqual([]); expect(history.read()).toBe('/x');
+  history.pop('/y'); for (let step = 0; step < 4; step++) await Promise.resolve();
+  expect(calls).toEqual(['a', 'x', 'y']); expect(history.read()).toBe('/x'); expect(history.replaced).toEqual(['/x']);
+  expect(bridge.controller.getSnapshot().activeId).toBe('x'); expect(bridge.controller.getScreen('y')).toBeUndefined();
+  bridge.dispose();
+});
+it('dispose drops runtime registrations and keeps the starting list', async () => {
+  const history = memoryHistory();
+  const bridge = createHistoryWorkspace({ screens: [{ id: 'a', title: 'A' }], screenFromUrl: url => url.slice(1), urlForScreen: id => `/${id}` }, history);
+  await bridge.ready; bridge.controller.register({ id: 'e', title: 'E' }); expect(bridge.controller.getScreen('e')).toEqual({ id: 'e', title: 'E' });
+  bridge.dispose();
+  expect(bridge.controller.getScreen('e')).toBeUndefined(); expect(bridge.controller.getScreen('a')).toEqual({ id: 'a', title: 'A' });
+});
+it('carries a screen type with extra fields through options and the controller', async () => {
+  const seen: number[] = [];
+  const bridge = createHistoryWorkspace<{ id: string; title: string; extra: number }>({ screens: [{ id: 'a', title: 'A', extra: 1 }], screenFromUrl: url => url.slice(1), urlForScreen: id => `/${id}`,
+    onChange: snapshot => { for (const screen of snapshot.screens) seen.push(screen.extra); } }, memoryHistory());
+  await bridge.ready;
+  bridge.controller.register({ id: 'b', title: 'B', extra: 2 });
+  const extra: number | undefined = bridge.controller.getScreen('b')?.extra;
+  expect(extra).toBe(2); expect(seen.at(-1)).toBe(2);
+  bridge.dispose();
+});
