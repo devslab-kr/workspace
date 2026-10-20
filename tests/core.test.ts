@@ -295,7 +295,11 @@ describe('checks and show', () => {
     const calls: string[] = []; const g = gate(); let held = false;
     const api = createWorkspace({ screens, home: () => 'a', beforeActivate: id => { calls.push(id); return held ? g.p : true; } });
     await api.open('b'); calls.length = 0; held = true;
+    let guardCalledAtCommit: boolean | undefined;
+    api.subscribe(s => { if (guardCalledAtCommit === undefined && !s.tabs.some(t => t.id === 'b')) guardCalledAtCommit = calls.includes('a'); });
     const closing = api.close('b');
+    await Promise.resolve();
+    expect(guardCalledAtCommit).toBe(false);
     expect(calls).toEqual(['a']);
     expect(api.getSnapshot().tabs).toEqual([]); expect(api.getSnapshot().pendingId).toBe('a');
     g.r(true);

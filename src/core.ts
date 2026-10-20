@@ -175,8 +175,7 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
     const existing = closing.get(id);
     if (existing) return existing;
     const task = performClose(id).finally(() => { if (closing.get(id) === task) closing.delete(id); });
-    // Without beforeClose the tab may already be gone; a reopened instance must get its own close.
-    if (state.tabs.some(t => t.id === id)) closing.set(id, task);
+    closing.set(id, task);
     return task;
   }
   /**
@@ -188,8 +187,7 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
     if (!tab) return 'unknown';
     if (isLastHome(id)) return 'cancelled';
     const request = ++generation;
-    // No await without beforeClose: the close commits in the caller's synchronous step.
-    const allowed = options.beforeClose ? await options.beforeClose(id) : true;
+    const allowed = await options.beforeClose?.(id);
     // A revocation or renewal replaced or removed this tab while its guard ran.
     if (request !== generation || state.tabs.find(t => t.id === id) !== tab) return 'stale';
     if (allowed === false || isLastHome(id)) return 'cancelled';
