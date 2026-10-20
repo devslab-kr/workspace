@@ -34,8 +34,9 @@ export function createHistoryWorkspace<S extends Screen = Screen, D = undefined>
   const api = createWorkspace<S, D>({ ...options, onChange(snapshot: Snapshot<S, D>) {
     const activationChanged = snapshot.activeId !== activeId;
     activeId = snapshot.activeId;
-    // A screen shown while its own check runs (retained-first, a closed tab's neighbour) is accepted only once that check settles.
-    const settled = snapshot.activeId !== undefined && snapshot.pendingId !== snapshot.activeId ? snapshot.activeId : undefined;
+    // A screen shown while its own check runs (retained-first, a closed tab's neighbour) is accepted only once that check
+    // settles allowed, also when it runs underneath a newer check (activePending, not pendingId, covers that).
+    const settled = snapshot.activeId !== undefined && !snapshot.activePending ? snapshot.activeId : undefined;
     if (!disposed && snapshot.activeId && (activationChanged || (settled !== undefined && settled !== acceptedId))) {
       const url = options.urlForScreen(snapshot.activeId);
       if (activationChanged && history.read() !== url) history.push(url);

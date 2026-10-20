@@ -127,3 +127,29 @@ it('a refused retained-first back navigation restores the last accepted URL; an 
   expect(history.read()).toBe('/b');
   bridge.dispose();
 });
+it('a screen shown under a newer check is not accepted until its own check allows it', async () => {
+  const history = memoryHistory(); let held = false; let resolveA!: (allowed: boolean) => void;
+  const bridge = createHistoryWorkspace({ screens: ['a', 'b', 'c'].map(id => ({ id, title: id })), showRetainedFirst: true, screenFromUrl: url => url.slice(1), urlForScreen: id => `/${id}`,
+    beforeActivate: id => id === 'c' ? false : held && id === 'a' ? new Promise<boolean>(done => { resolveA = done; }) : true }, history);
+  await bridge.ready; await bridge.controller.open('b'); expect(history.read()).toBe('/b');
+  held = true; history.move('/a'); const back = bridge.sync();
+  expect(bridge.controller.getSnapshot()).toMatchObject({ activeId: 'a', pendingId: 'a' });
+  history.move('/c'); expect(await bridge.sync()).toBe('denied');
+  expect(history.read()).toBe('/b'); expect(bridge.controller.getSnapshot()).toMatchObject({ activeId: 'a', pendingId: 'a' });
+  resolveA(false); expect(await back).toBe('denied');
+  expect(bridge.controller.getSnapshot().activeId).toBeUndefined(); expect(history.read()).toBe('/b');
+  history.move('/c'); expect(await bridge.sync()).toBe('denied'); expect(history.read()).toBe('/b');
+  bridge.dispose();
+});
+it('a closed tab\'s neighbour shown under a newer check is accepted once its own check allows it', async () => {
+  const history = memoryHistory(); let held = false; let resolveC!: (allowed: boolean) => void;
+  const bridge = createHistoryWorkspace({ screens: ['a', 'b', 'c'].map(id => ({ id, title: id })), screenFromUrl: url => url.slice(1), urlForScreen: id => `/${id}`,
+    beforeActivate: id => id === 'x' ? false : held && id === 'c' ? new Promise<boolean>(done => { resolveC = done; }) : true }, history);
+  await bridge.ready; await bridge.controller.open('b'); await bridge.controller.open('c'); await bridge.controller.select('b'); expect(history.read()).toBe('/b');
+  held = true; const closed = bridge.controller.close('b'); await Promise.resolve(); await Promise.resolve();
+  expect(bridge.controller.getSnapshot()).toMatchObject({ activeId: 'c', pendingId: 'c' }); expect(history.read()).toBe('/c');
+  history.move('/x'); expect(await bridge.sync()).toBe('denied'); expect(history.read()).toBe('/b');
+  resolveC(true); expect(await closed).toBe('ok'); expect(bridge.controller.getSnapshot().activeId).toBe('c');
+  history.move('/x'); expect(await bridge.sync()).toBe('denied'); expect(history.read()).toBe('/c');
+  bridge.dispose();
+});

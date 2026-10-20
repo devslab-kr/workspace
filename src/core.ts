@@ -8,6 +8,12 @@ export interface Snapshot<S extends Screen = Screen, D = undefined> {
   readonly activeId?: string;
   /** The id whose check (beforeActivate) is running. */
   readonly pendingId?: string;
+  /**
+   * True while a check of the active screen is running at any depth: the running check, or a check of the
+   * screen on display that keeps running underneath a newer check (`pendingId` names only the newer one).
+   * Absent otherwise.
+   */
+  readonly activePending?: true;
   readonly switcherOpen: boolean;
 }
 export type Result = 'ok' | 'unknown' | 'limit' | 'denied' | 'cancelled' | 'stale';
@@ -105,7 +111,9 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
     return [...tabs, newTab(screen, slot)];
   }
   function commit(tabs: readonly Tab<D>[], activeId?: string, switcherOpen = state.switcherOpen, screens = state.screens) {
-    state = Object.freeze({ tabs: Object.freeze([...tabs]), screens, activeId, pendingId: check?.id, switcherOpen: switcherOpen && tabs.length > 0 });
+    const under = check?.under;
+    const activePending = activeId !== undefined && (check?.id === activeId || (under?.id === activeId && under.shown === activations));
+    state = Object.freeze({ tabs: Object.freeze([...tabs]), screens, activeId, pendingId: check?.id, ...(activePending ? { activePending: true as const } : {}), switcherOpen: switcherOpen && tabs.length > 0 });
     for (const listener of listeners) listener(state);
     options.onChange?.(state);
   }
@@ -115,11 +123,13 @@ export function createWorkspace<S extends Screen = Screen, D = undefined>(option
    */
   function settle(mine: Check | undefined, refuse: boolean) {
     const ours = mine !== undefined && check === mine;
+    // A check underneath that ends while its screen is active changes `activePending`, so it commits too.
+    const below = !ours && mine !== undefined && check?.under === mine && state.activeId === mine.id;
     // An underlying check whose screen has left the display was overtaken; it does not run again.
     if (ours) check = onDisplay(mine.under) ? mine.under : undefined;
     else if (mine !== undefined && check?.under === mine) check.under = undefined;
     const clear = refuse && mine !== undefined && state.activeId === mine.id;
-    if (ours || clear) commit(state.tabs, clear ? undefined : state.activeId);
+    if (ours || clear || below) commit(state.tabs, clear ? undefined : state.activeId);
   }
   /**
    * A router show of `screen` over `tabs`. Showing the active screen does nothing; showing the screen
