@@ -44,7 +44,7 @@ import '@devslab/workspace/style.css';
 
 기존 메뉴 안에서는 `useWorkspace().open(id)`만 연결한다. 바깥에서 접근해야 하면 `createWorkspace({screens,...})`로 컨트롤러를 만들고 `<Workspace controller={controller} screens={screens} menu={false}>`에 전달한다. 컨트롤러 사용 시 가드·상한·기본 화면을 컴포넌트에 중복 설정하지 않는다. 레지스트리는 생성 시 고정하며 앱 identity나 목록이 바뀌면 다시 마운트한다.
 
-명령은 open/select/close/showSwitcher/hideSwitcher/reset이다. select는 열린 탭만 선택한다. 비동기 가드가 거절되거나 실패하면 현재 화면을 유지한다. 마지막 유효 요청만 반영한다. reset은 닫기 확인을 건너뛰고 전체 화면과 미완료 요청을 폐기하므로 로그아웃·회사 변경에 사용한다.
+명령은 open/select/close/showSwitcher/hideSwitcher/reset이다. select는 열린 탭만 선택한다. open·select의 비동기 가드가 거절되거나 실패하면 현재 화면을 유지한다. 마지막 유효 요청만 반영한다. 닫기는 다음 화면을 기다리지 않는다. beforeClose가 허용하면 탭이 바로 빠지고 옆 화면이 바로 보이며, 그다음에 옆 화면의 beforeActivate를 확인한다. 거절하면 close는 `denied`로 끝나고 활성 화면이 없는 빈 상태가 된다. 이때 남은 첫 탭은 Tab 키로 들어갈 수 있다. 예외가 나면 같은 빈 상태로 바꾼 뒤 reject한다. 확인이 끝나기 전에 다른 open·select가 반영되거나 reset이 실행되거나 보이던 옆 화면이 먼저 닫히면, 그 확인은 적용하지 않고 close는 `stale`로 끝난다. 닫은 버튼이 사라지면 포커스는 보이는 탭으로 옮기지만, 사용자가 이미 옮겨 간 화면 안의 포커스는 빼앗지 않는다. reset은 닫기 확인을 건너뛰고 전체 화면과 미완료 요청을 폐기하므로 로그아웃·회사 변경에 사용한다.
 
 CSS는 선택이며 `--ws-*` 변수, classNames, 콘텐츠 슬롯, unstyled로 바꾼다. 전체 레이아웃은 WorkspaceProvider·WorkspaceTabList·WorkspaceTab·WorkspaceCloseButton·WorkspacePanels·WorkspaceSwitcher·WorkspaceSwitcherTrigger·WorkspaceStatus로 조립한다. 닫기 버튼은 role=tablist 바깥에 둔다. asChild는 기존 버튼의 이벤트와 ref를 연결하며 preventDefault가 동작을 취소한다. 비활성 화면 숨김과 포커스 차단은 CSS 없이도 유지된다.
 
@@ -54,7 +54,7 @@ DDS를 사용하면 라이선스가 적용된 DDS 토큰과 `@devslab/workspace/
 
 기본 화면은 mount 후 열어 SSR은 빈 상태로 시작한다. 서버에서 현재 탭이 필요하면 요청별 컨트롤러를 먼저 열고 SSR에 전달한다. dir를 지정하면 서버에서도 올바른 RTL이 된다. Next/Nuxt/SvelteKit 통합은 검증했다고 주장하지 않는다.
 
-선택 API `createHistoryWorkspace(options, browserHistory(window))`가 URL 진입·뒤로가기·앞으로가기를 연결한다. screenFromUrl/urlForScreen을 제공하고 controller/ready/dispose를 사용한다. 거절된 뒤로가기는 마지막 허용 URL로 replace하며 새 항목을 추가하지 않는다. 앱에서 화면을 고르면 변경된 URL만 push한다. dispose는 리스너와 화면을 정리한다. 동기 History 어댑터이며 TanStack 등의 비동기 loader·라우터 취소는 앱에서 연결한다.
+선택 API `createHistoryWorkspace(options, browserHistory(window))`가 URL 진입·뒤로가기·앞으로가기를 연결한다. screenFromUrl/urlForScreen을 제공하고 controller/ready/dispose를 사용한다. 거절된 뒤로가기는 마지막 허용 URL로 replace하며 새 항목을 추가하지 않는다. 앱에서 화면을 고르면 변경된 URL만 push한다. 활성 탭을 닫으면 옆 화면이 보이는 즉시, 가드 결과보다 먼저 그 URL을 push한다. 가드가 거절하면 URL은 거절된 화면에 남고 마지막 허용 URL로 유지된다. 그 URL을 다시 불러오면 가드를 다시 확인한다. dispose는 리스너와 화면을 정리한다. 동기 History 어댑터이며 TanStack 등의 비동기 loader·라우터 취소는 앱에서 연결한다.
 
 검증 명령과 프레임워크별 사용법은 [영문 가이드](README.md), [SolidJS](docs/solid.md), [React/Vue](docs/react-vue.md), [Svelte](src/svelte/README.md)에 있다. 공개·배포·임시 체크아웃 정리는 검증된 변경을 통합한 뒤 진행한다.
 

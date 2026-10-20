@@ -40,8 +40,13 @@ try {
   await expect(page.locator('[data-workspace-choice]').filter({ hasText: 'Customers' })).toBeFocused();
   for (let i = 0; i < 6; i++) { await page.keyboard.press('Tab'); expect(await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true); }
   await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).toHaveCount(0); await expect(trigger).toBeFocused();
+  await page.getByRole('tab', { name: 'Orders', exact: true }).click(); await page.getByRole('button', { name: 'Deny customers', exact: true }).click();
   await page.getByRole('button', { name: 'Close Orders', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Orders', exact: true })).toHaveCount(0);
+  await expect(page.getByText('Choose a screen', { exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Customers', exact: true })).toHaveAttribute('aria-selected', 'false');
+  await expect(page.getByRole('tab', { name: 'Customers', exact: true })).toHaveAttribute('tabindex', '0');
+  await page.getByRole('button', { name: 'Allow customers', exact: true }).click();
   await menu.getByRole('button', { name: 'Orders', exact: true }).click();
   await expect(page.getByLabel('orders input', { exact: true })).toHaveValue('');
   await page.getByRole('button', { name: 'Reset workspace', exact: true }).click();

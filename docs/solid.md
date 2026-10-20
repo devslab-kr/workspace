@@ -69,7 +69,7 @@ The `screens` variable here is the registry from the first example. `open(id)` o
 
 ## Protect unsaved changes
 
-`beforeClose` belongs to the app. Return `false` to retain the tab or a promise that resolves after your own confirmation dialog. Use `beforeActivate` for an app-owned permission or router bridge.
+`beforeClose` belongs to the app. Return `false` to retain the tab or a promise that resolves after your own confirmation dialog. Use `beforeActivate` for an app-owned permission or router bridge. When the active tab closes, its neighbour shows first and `beforeActivate` checks it right after; a refusal leaves no screen active.
 
 ```tsx
 const [dirty, setDirty] = createSignal(false);
