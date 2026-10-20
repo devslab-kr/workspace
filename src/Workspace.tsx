@@ -70,13 +70,22 @@ export function WorkspaceProvider(props: WorkspaceProps) {
   const prefix = `ws-${createUniqueId()}`; const labels = () => ({ ...defaults, ...props.labels });
   const cls = (part: WorkspacePart) => [props.unstyled ? '' : part === 'root' ? 'workspace' : `workspace-${part}`, props.classNames?.[part]].filter(Boolean).join(' ') || undefined;
   let root!: HTMLDivElement; let opener: HTMLElement | undefined; let composing = false;
+  /** Puts keyboard focus back on the tab list, unless the user has already moved into the shown page (or, if onlyIfLost, anywhere). */
+  function restoreFocus(onlyIfLost = false) {
+    const focused = document.activeElement;
+    if (onlyIfLost ? focused && focused !== document.body : focused instanceof HTMLElement && root.contains(focused) && focused.closest('[data-workspace-part="panel"]:not([hidden])')) return;
+    (root.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? root.querySelector<HTMLElement>('[role="tab"]'))?.focus();
+  }
   async function run(task: Promise<Result>, focus = false) {
+    // A close removes the focused tab or button at once, before the next screen's guard settles: refocus on that change too.
+    const stop = focus ? api.subscribe(() => { stop?.(); queueMicrotask(() => restoreFocus()); }) : undefined;
     try {
       const result = await task; props.onResult?.(result);
       setStatus(result === 'limit' ? labels().limit : result === 'denied' || result === 'cancelled' ? labels().denied : '');
-      if (result === 'ok' && focus) queueMicrotask(() => root.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus());
+      if ((result === 'ok' || result === 'denied') && focus) queueMicrotask(() => restoreFocus(result === 'denied'));
       return result;
     } catch (error) { setStatus(labels().error); props.onError?.(error); }
+    finally { stop?.(); }
   }
   function showSwitcher() { opener = document.activeElement instanceof HTMLElement ? document.activeElement : undefined; api.showSwitcher(); }
   onMount(() => {
@@ -128,7 +137,9 @@ function callHandler<E extends Event>(handler: JSX.EventHandlerUnion<HTMLButtonE
 export function WorkspaceTab(props: ButtonPartProps & { id: string }) {
   const [local, rest] = splitProps(props, ['id', 'children', 'class', 'onKeyDown', 'asChild']);
   const c = useParts(); const tab = () => c.state().tabs.find(tab => tab.id === props.id)!;
-  return <Tabs.Trigger {...rest} value={local.id} class={local.class ?? c.cls('tab')} asChild={childAdapter(local.asChild, props.ref)} data-workspace-part="tab" onKeyDown={event => { callHandler(local.onKeyDown, event); if (!event.defaultPrevented && event.key === 'Delete' && !event.isComposing) { event.preventDefault(); void c.run(c.api.close(local.id), true); } }}>
+  // With no screen active no tab is selected, so the first tab stays in the Tab order.
+  const entry = () => !c.state().activeId && c.state().tabs[0]?.id === local.id ? 0 : undefined;
+  return <Tabs.Trigger {...rest} tabIndex={entry() ?? rest.tabIndex} value={local.id} class={local.class ?? c.cls('tab')} asChild={childAdapter(local.asChild, props.ref)} data-workspace-part="tab" onKeyDown={event => { callHandler(local.onKeyDown, event); if (!event.defaultPrevented && event.key === 'Delete' && !event.isComposing) { event.preventDefault(); void c.run(c.api.close(local.id), true); } }}>
     {local.children ?? c.props.slots?.tabLabel?.(c.screen(local.id), tab()) ?? c.screen(local.id).title}
   </Tabs.Trigger>;
 }
@@ -137,11 +148,12 @@ export function WorkspaceCloseButton(props: ButtonPartProps & { id: string }) {
   const c = useParts(); return <ark.button {...rest} type="button" asChild={childAdapter(local.asChild, props.ref)} data-workspace-part="close" data-active={c.state().activeId === local.id} class={local.class ?? c.cls('close')} aria-label={c.labels().close(c.screen(local.id).title)} onClick={event => { callHandler(local.onClick, event); if (!event.defaultPrevented) void c.run(c.api.close(local.id), true); }}>{local.children ?? '×'}</ark.button>;
 }
 export function WorkspacePanels() {
-  const c = useParts(); return <Show when={c.state().tabs.length} fallback={c.props.slots?.empty?.() ?? <p>{c.labels().empty}</p>}><For each={c.state().tabs}>{tab =>
+  // Retained panels stay mounted; the empty state shows whenever no screen is active (none open, or a closed tab's neighbour was refused).
+  const c = useParts(); return <><For each={c.state().tabs}>{tab =>
     <PageContext.Provider value={{ id: tab.id, active: () => c.state().activeId === tab.id }}>
       <Tabs.Content value={tab.id} data-workspace-part="panel" class={c.cls('panel')} hidden={c.state().activeId !== tab.id} inert={c.state().activeId !== tab.id} style={{ display: c.state().activeId === tab.id ? undefined : 'none' }}><Dynamic component={c.screen(tab.id).component} /></Tabs.Content>
     </PageContext.Provider>
-  }</For></Show>;
+  }</For><Show when={!c.state().activeId}>{c.props.slots?.empty?.() ?? <p>{c.labels().empty}</p>}</Show></>;
 }
 export function WorkspaceStatus() { const c = useParts(); return <div hidden={c.state().switcherOpen} role="status" aria-live="polite" data-workspace-part="status" class={c.cls('status')}>{c.status()}</div>; }
 export function WorkspaceSwitcherTrigger(props: ButtonPartProps) {

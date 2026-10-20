@@ -63,6 +63,29 @@ for (const framework of ['react', 'vue']) {
     await page.evaluate(() => (window as any).resolveAdapterGuard(false));
     await expect(page.getByRole('status')).toHaveText('Screen transition cancelled');
     await expect(page.getByRole('tab', { name: 'Beta' })).toHaveAttribute('aria-selected', 'true');
+    // Closing the active tab removes it at once and focuses the shown neighbour; a refused neighbour leaves the empty state.
+    await page.getByRole('button', { name: 'Close Beta', exact: true }).click();
+    await expect(page.getByRole('tab', { name: 'Beta' })).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Alpha' })).toBeFocused();
+    await page.evaluate(() => (window as any).resolveAdapterGuard(false));
+    await expect(page.getByText('Choose a screen', { exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'false');
+    await expect(page.getByRole('tab', { name: 'Alpha' })).toHaveAttribute('tabindex', '0');
+    await expect(page.locator('[data-workspace-part="panel"]:not([hidden])')).toHaveCount(0);
+    // Work started in the shown neighbour keeps its focus when the slow guard later allows it.
+    await page.evaluate(() => { (window as any).adapterGuard = () => true; });
+    await page.getByRole('button', { name: 'Beta', exact: true }).click();
+    await page.getByRole('tab', { name: 'Alpha' }).click();
+    await expect(page.getByRole('tab', { name: 'Beta' })).toHaveAttribute('tabindex', '-1');
+    await page.evaluate(() => { (window as any).adapterGuard = () => new Promise(resolve => { (window as any).resolveAdapterGuard = resolve; }); });
+    await page.getByRole('button', { name: 'Close Alpha', exact: true }).click();
+    const input = page.locator('[data-workspace-part="panel"]:not([hidden])').getByRole('textbox');
+    await input.click(); await page.keyboard.type('typing');
+    await page.evaluate(() => (window as any).resolveAdapterGuard(true));
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 100)));
+    await expect(page.getByRole('tab', { name: 'Beta' })).toHaveAttribute('aria-selected', 'true');
+    await expect(input).toBeFocused(); await expect(input).toHaveValue('typing');
   });  test(`${framework}: denied and failed switcher choices report inside the modal`, async ({ page }) => {
     await page.goto(`/tests/fixtures/react-vue.html?framework=${framework}`);
     await page.getByRole('button', { name: 'Beta', exact: true }).click();

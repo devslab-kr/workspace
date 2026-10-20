@@ -29,13 +29,41 @@ describe('workspace state', () => {
     expect(await api.open('c')).toBe('denied');
     expect(api.getSnapshot().activeId).toBe('a');
   });
-  it('guards the replacement before disposing the active screen', async () => {
-    let denied = false;
-    const api = createWorkspace({ screens, beforeActivate: id => !(denied && id === 'b') });
-    await api.open('a'); await api.open('b'); await api.select('a'); denied = true;
-    expect(await api.close('a')).toBe('denied');
-    expect(api.getSnapshot().tabs).toHaveLength(2);
-    expect(api.getSnapshot().activeId).toBe('a');
+  it('closes at once and shows the neighbour while its guard runs; a refused or failed neighbour leaves nothing active', async () => {
+    let resolve!: (allowed: boolean) => void; let guarded = false;
+    const api = createWorkspace({ screens, beforeActivate: id => guarded && id === 'b' ? new Promise<boolean>(r => { resolve = r; }) : true });
+    await api.open('a'); await api.open('b'); await api.select('a'); guarded = true;
+    const closing = api.close('a'); await Promise.resolve();
+    expect(api.getSnapshot().tabs.map(t => t.id)).toEqual(['b']); expect(api.getSnapshot().activeId).toBe('b');
+    resolve(false);
+    expect(await closing).toBe('denied');
+    expect(api.getSnapshot().tabs.map(t => t.id)).toEqual(['b']); expect(api.getSnapshot().activeId).toBeUndefined();
+    guarded = false;
+    const failing = createWorkspace({ screens, beforeActivate: id => { if (guarded && id === 'b') throw new Error('guard failed'); return true; } });
+    await failing.open('a'); await failing.open('b'); await failing.select('a'); guarded = true;
+    await expect(failing.close('a')).rejects.toThrow('guard failed');
+    expect(failing.getSnapshot().tabs.map(t => t.id)).toEqual(['b']); expect(failing.getSnapshot().activeId).toBeUndefined();
+  });
+  it('a later activation or a reopened tab overtakes a pending close guard (stale); closing another tab does not', async () => {
+    const resolves: ((allowed: boolean) => void)[] = []; let guarded = false;
+    const ids = (api: ReturnType<typeof createWorkspace>) => api.getSnapshot().tabs.map(t => t.id);
+    const setup = async () => {
+      guarded = false;
+      const api = createWorkspace({ screens, beforeActivate: id => guarded && id === 'b' ? new Promise<boolean>(r => resolves.push(r)) : true });
+      for (const id of ['a', 'b', 'c']) await api.open(id);
+      await api.select('a'); guarded = true; return api;
+    };
+    let api = await setup(); let closing = api.close('a'); await Promise.resolve();
+    expect(await api.close('c')).toBe('ok'); resolves.shift()!(false);
+    expect(await closing).toBe('denied'); expect(ids(api)).toEqual(['b']); expect(api.getSnapshot().activeId).toBeUndefined();
+    api = await setup(); closing = api.close('a'); await Promise.resolve();
+    expect(await api.open('a')).toBe('ok'); expect(await api.close('a')).toBe('ok');
+    resolves.shift()!(false);
+    expect(await closing).toBe('stale'); expect(ids(api)).toEqual(['b', 'c']); expect(api.getSnapshot().activeId).toBe('c');
+    api = await setup(); closing = api.close('a'); await Promise.resolve();
+    const selecting = api.select('b'); resolves[1](true); expect(await selecting).toBe('ok');
+    resolves[0](false); resolves.length = 0;
+    expect(await closing).toBe('stale'); expect(api.getSnapshot().activeId).toBe('b');
   });
   it('latest transition wins and reset invalidates pending activations', async () => {
     let resolve!: (allowed: boolean) => void;

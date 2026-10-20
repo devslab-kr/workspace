@@ -6,7 +6,7 @@ export type Result = 'ok' | 'unknown' | 'limit' | 'denied' | 'cancelled' | 'stal
 export interface Options {
   screens: readonly Screen[];
   maxTabs?: number;
-  /** App-owned guard/router bridge, invoked before committing an activation. */
+  /** App-owned guard/router bridge, invoked before committing an activation. Closing the active tab shows its neighbour first and checks it right after. */
   beforeActivate?: (id: string) => boolean | Promise<boolean>;
   beforeClose?: (id: string) => boolean | Promise<boolean>;
   onChange?: (snapshot: Snapshot) => void;
@@ -20,6 +20,8 @@ export function createWorkspace(options: Options) {
   let state: Snapshot = Object.freeze({ tabs: Object.freeze([]), switcherOpen: false });
   let generation = 0;
   let instance = 0;
+  /** Counts committed activations (open/select) and resets, so a late close guard knows it was overtaken. */
+  let activations = 0;
   const listeners = new Set<(state: Snapshot) => void>();
   const closing = new Map<string, Promise<Result>>();
   function commit(tabs: readonly Tab[], activeId?: string, switcherOpen = state.switcherOpen) {
@@ -46,6 +48,7 @@ export function createWorkspace(options: Options) {
       while (used.has(slot)) slot++;
       tabs = [...tabs, { id, slot, instance: ++instance }];
     }
+    activations++;
     commit(tabs, id);
     return 'ok';
   }
@@ -56,6 +59,10 @@ export function createWorkspace(options: Options) {
     closing.set(id, task);
     return task;
   }
+  /**
+   * The closed tab leaves at once and a retained neighbour shows straight away; the neighbour's
+   * beforeActivate runs afterwards. If it refuses or throws, nothing is active (the empty state).
+   */
   async function performClose(id: string): Promise<Result> {
     const tab = state.tabs.find(t => t.id === id);
     if (!tab) return 'unknown';
@@ -63,18 +70,23 @@ export function createWorkspace(options: Options) {
     const allowed = await options.beforeClose?.(id);
     if (request !== generation) return 'stale';
     if (allowed === false) return 'cancelled';
+    const wasActive = state.activeId === id;
     const index = state.tabs.findIndex(t => t.id === id);
-    let activeId = state.activeId;
-    if (activeId === id) {
-      activeId = (state.tabs[index + 1] ?? state.tabs[index - 1])?.id;
-      if (activeId) {
-        const canActivate = await options.beforeActivate?.(activeId);
-        if (request !== generation) return 'stale';
-        if (canActivate === false) return 'denied';
-      }
-    }
-    commit(state.tabs.filter(t => t.id !== id), activeId);
-    return 'ok';
+    const next = wasActive ? (state.tabs[index + 1] ?? state.tabs[index - 1])?.id : state.activeId;
+    commit(state.tabs.filter(t => t.id !== id), next);
+    // The tab is gone: a reopened instance must get its own close, not this one.
+    closing.delete(id);
+    if (!wasActive || !next || !options.beforeActivate) return 'ok';
+    // A later activation, reset or close of the shown neighbour owns the active screen; closing other tabs meanwhile does not.
+    const shown = activations;
+    const current = () => activations === shown && state.activeId === next;
+    let canActivate: boolean;
+    try { canActivate = (await options.beforeActivate(next)) !== false; }
+    catch (error) { if (current()) commit(state.tabs, undefined); throw error; }
+    if (!current()) return 'stale';
+    if (canActivate) return 'ok';
+    commit(state.tabs, undefined);
+    return 'denied';
   }
   return {
     getSnapshot: () => state, getScreens: () => screens, open, select, close,
@@ -84,7 +96,7 @@ export function createWorkspace(options: Options) {
     /** Cancel outstanding guard requests without changing retained tabs or activity. */
     cancelPending() { generation++; closing.clear(); },
     /** Immediate disposal for logout/tenant changes/revocation; deliberately bypasses close guards. */
-    reset() { generation++; closing.clear(); commit([], undefined, false); }
+    reset() { generation++; activations++; closing.clear(); commit([], undefined, false); }
   };
 }
 export type WorkspaceController = ReturnType<typeof createWorkspace>;

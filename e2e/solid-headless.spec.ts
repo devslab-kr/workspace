@@ -30,4 +30,9 @@ test('headless custom buttons preserve refs, events, guards and fresh instance i
   await page.evaluate(async () => { const api = (window as any).workspace; api.reset(); await api.open('a'); });
   await expect(page.getByLabel('Alpha draft', { exact: true })).toHaveValue('');
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.evaluate(async () => { const w = window as any; w.harness.protect = false; await w.workspace.open('b'); await w.workspace.select('a'); w.harness.deny = true; });
+  await page.getByRole('button', { name: 'Close Alpha', exact: true }).click();
+  await expect(alpha).toHaveCount(0); await expect(page.getByText('Choose a screen', { exact: true })).toBeVisible();
+  await expect(beta).toHaveAttribute('aria-selected', 'false'); await expect(beta).toHaveAttribute('tabindex', '0');
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });

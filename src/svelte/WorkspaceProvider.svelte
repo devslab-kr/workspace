@@ -17,9 +17,13 @@
   onDestroy(api.subscribe(next => { snapshot = next; }));
   const labels = () => ({ ...defaultLabels, ...props.labels });
   const cls = (part: WorkspacePart) => [props.unstyled ? '' : part === 'root' ? 'workspace' : `workspace-${part}`, props.classNames?.[part]].filter(Boolean).join(' ') || undefined;
+  // Focus returns to the tab list after a command unless the user moved into the shown page; a close also refocuses on its immediate commit.
+  async function restoreFocus(onlyIfLost = false) { await tick(); const element = root; if (!element) return; const focused = document.activeElement; if (onlyIfLost ? focused && focused !== document.body : focused instanceof HTMLElement && element.contains(focused) && focused.closest('[data-workspace-part="panel"]:not([hidden])')) return; (element.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? element.querySelector<HTMLElement>('[role="tab"]'))?.focus(); }
   async function run(task: ReturnType<typeof api.open>, focus = false) {
-    try { const result = await task; props.onResult?.(result); status = result === 'limit' ? labels().limit : result === 'denied' || result === 'cancelled' ? labels().denied : ''; if (result === 'ok' && focus) { await tick(); root?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus(); } return result; }
+    const stop: (() => void) | undefined = focus ? api.subscribe(() => { stop?.(); void restoreFocus(); }) : undefined;
+    try { const result = await task; props.onResult?.(result); status = result === 'limit' ? labels().limit : result === 'denied' || result === 'cancelled' ? labels().denied : ''; if ((result === 'ok' || result === 'denied') && focus) await restoreFocus(result === 'denied'); return result; }
     catch (error) { status = labels().error; props.onError?.(error); }
+    finally { stop?.(); }
   }
   function showSwitcher() { opener = document.activeElement instanceof HTMLElement ? document.activeElement : undefined; api.showSwitcher(); }
   const context: WorkspaceContext = { api, get state() { return snapshot; }, get props() { return props; }, get labels() { return labels(); }, get status() { return status; }, screen: id => registry.get(id)!, cls, run, showSwitcher, root: () => (root ?? undefined) as HTMLElement | undefined, opener: () => opener, prefix };
