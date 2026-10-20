@@ -41,11 +41,11 @@ export function App() {
 }
 ```
 
-Opening Notes creates a tab. Switching back to Orders preserves its input. Closing a tab disposes that component; reopening creates a fresh instance. Screen IDs must be unique and nonempty. The screen registry and controller options are construction-time values; remount the workspace when changing the user identity or registry.
+Opening Notes creates a tab. Switching back to Orders preserves its input. Closing a tab disposes that component; reopening creates a fresh instance. Screen IDs must be unique and nonempty. Controller options and the `screens` prop are read once; remount the workspace when the user identity changes. To add or remove screens while it runs, see [Registering screens at run time](#registering-screens-at-run-time).
 
 ## Connect an existing menu
 
-Create the controller inside your app component and pass the same screen IDs to both controller and presentation. With a supplied controller, put `maxTabs`, guards and `onChange` on `createWorkspace`; do not also pass standalone options or `defaultScreen` to `Workspace`.
+Create the controller inside your app component. The controller's list is the registry; the `screens` prop supplies components, by id, for controller definitions that carry none (here both use the same list). With a supplied controller, put `maxTabs`, guards and `onChange` on `createWorkspace`; do not also pass standalone options or `defaultScreen` to `Workspace`.
 
 ```tsx
 import { Workspace, createWorkspace } from '@devslab/workspace/solid';
@@ -66,6 +66,34 @@ export function App() {
 ```
 
 The `screens` variable here is the registry from the first example. `open(id)` opens or selects a screen, `select(id)` selects an already open tab and `close(id)` closes it. Handle the returned result when your app invokes the controller directly. The built-in menu displays transition feedback for its own actions.
+
+## Registering screens at run time
+
+The controller's registry can change while the workspace runs. A router registers a screen when its route succeeds and shows it; `retainOnly` removes screens whose access is gone.
+
+```tsx
+import { Workspace, createWorkspace, useWorkspacePage, type AdapterScreen } from '@devslab/workspace/solid';
+
+type Draft = { text: string };
+const controller = createWorkspace<AdapterScreen, Draft>({
+  createTabData: () => ({ text: '' }),
+  beforeActivate: id => navigateAndReport(id), // the route registers the screen before this resolves
+});
+
+function Report() {
+  const page = useWorkspacePage<Draft>();
+  return <h2>{page.screen()?.title}</h2>; // page.data is this tab's Draft
+}
+
+// In the router, once a route is allowed:
+controller.register({ id: '/reports/2026', title: 'Reports 2026', component: Report }, { show: true });
+// When permissions change:
+controller.retainOnly(allowedIds);
+
+export const App = () => <Workspace controller={controller} menu={false} />;
+```
+
+`show()` and `register(…, { show: true })` run no guard; they are meant for the app's router. `unregister` and `retainOnly` revoke without `beforeClose`, and `renew` replaces an open tab with a new instance. `home`, `showRetainedFirst`, `pendingId` and `slots.pendingTab` are described with the full rules in [Registering screens at run time](../README.md#registering-screens-at-run-time). In Solid, `page.active()` and `page.screen()` are accessors and `page.data` is a plain value. Listeners must not register or show screens in reaction to a snapshot change.
 
 ## Protect unsaved changes
 
@@ -117,7 +145,7 @@ The built-in shortcuts are `Alt+Q` for the switcher and `Alt+1` through `Alt+9` 
 
 ## SSR and hydration
 
-The package exports a server build for Node, Worker and workerd conditions and a client build for browsers. By default the server renders no opened screen; `defaultScreen` opens after client mount. To render an opened screen on the server, create and pre-open a request-local controller and provide matching initial state for hydration. Never share a mutable controller between requests or users.
+The package exports a server build for Node, Worker and workerd conditions and a client build for browsers. By default the server renders no opened screen; `defaultScreen` opens after client mount. To render an opened screen on the server, create and pre-open a request-local controller and provide matching initial state for hydration. Register (and show) screens on it before rendering, or during render before the tab parts render, and replay the same registrations in the same order on the client so slots match. Never share a mutable controller between requests or users.
 
 Workspace does not supply router loaders or authorization. The optional history adapter is described in [URL integration](../README.md); integrate asynchronous router transitions in your app. `RetainedPanels` is a lower-level option for app-owned dynamic screen lists, with stable item identity required to retain component owners.
 

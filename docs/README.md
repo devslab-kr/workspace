@@ -6,6 +6,7 @@
 | --- | --- |
 | [Getting started](../README.md#install) | Install, register screens and create retained tabs with the open-screen switcher |
 | [Menus and guards](../README.md#existing-menus-and-guards) | Connect existing navigation, permissions and unsaved-form confirmation |
+| [Run-time screens](../README.md#registering-screens-at-run-time) | Register, show and revoke screens from an app router; per-tab data, home and SSR rules |
 | [Composition and styling](../README.md#styling-and-composition) | Headless parts, CSS tokens, active-page lifecycle and URL integration |
 | [SolidJS](solid.md) | Primary adapter: screen registration, retained state, guards, active-page effects and SSR |
 | [React and Vue](react-vue.md) | Native framework adapters |

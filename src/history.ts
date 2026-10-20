@@ -1,4 +1,4 @@
-import { createWorkspace, type Options, type Result, type Snapshot } from './core';
+import { createWorkspace, type Options, type Result, type Screen, type Snapshot, type WorkspaceController } from './core';
 
 /** Synchronous URL history only; async router loaders remain app-owned guards. */
 export interface HistoryAdapter {
@@ -7,24 +7,40 @@ export interface HistoryAdapter {
   replace(url: string): void;
   subscribe(listener: () => void): () => void;
 }
-export interface HistoryOptions extends Options {
+export interface HistoryOptions<S extends Screen = Screen, D = undefined> extends Options<S, D> {
   screenFromUrl(url: string): string | undefined;
   urlForScreen(id: string): string;
   onNavigationError?: (error: unknown) => void;
 }
-/** Optional two-way URL adapter with guarded back/forward and no network calls. */
-export function createHistoryWorkspace(options: HistoryOptions, history: HistoryAdapter) {
+export interface HistoryWorkspace<S extends Screen = Screen, D = undefined> {
+  controller: WorkspaceController<S, D>;
+  ready: Promise<Result | undefined>;
+  sync(): Promise<Result | undefined>;
+  /** Unsubscribes and resets the controller: tabs close without guards and runtime registrations are dropped. */
+  dispose(): void;
+}
+/**
+ * Optional two-way URL adapter with guarded back/forward and no network calls. It owns the URL:
+ * do not combine it with `show()` from another router. With a guard, back/forward to an id that
+ * is not registered still runs the guard, and the registry is read after it.
+ */
+export function createHistoryWorkspace<S extends Screen = Screen, D = undefined>(options: HistoryOptions<S, D>, history: HistoryAdapter): HistoryWorkspace<S, D> {
   let disposed = false;
   let observed = 0;
   let acceptedUrl = history.read();
   let activeId: string | undefined;
-  const api = createWorkspace({ ...options, onChange(snapshot: Snapshot) {
+  /** The screen `acceptedUrl` belongs to; undefined while it is the starting URL. */
+  let acceptedId: string | undefined;
+  const api = createWorkspace<S, D>({ ...options, onChange(snapshot: Snapshot<S, D>) {
     const activationChanged = snapshot.activeId !== activeId;
     activeId = snapshot.activeId;
-    if (!disposed && activationChanged && snapshot.activeId) {
+    // A screen shown while its own check runs (retained-first, a closed tab's neighbour) is accepted only once that check
+    // settles allowed, also when it runs underneath a newer check (activePending, not pendingId, covers that).
+    const settled = snapshot.activeId !== undefined && !snapshot.activePending ? snapshot.activeId : undefined;
+    if (!disposed && snapshot.activeId && (activationChanged || (settled !== undefined && settled !== acceptedId))) {
       const url = options.urlForScreen(snapshot.activeId);
-      if (history.read() !== url) history.push(url);
-      acceptedUrl = url;
+      if (activationChanged && history.read() !== url) history.push(url);
+      if (settled !== undefined) { acceptedUrl = url; acceptedId = settled; }
     }
     options.onChange?.(snapshot);
   } });

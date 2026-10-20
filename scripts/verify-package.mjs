@@ -173,6 +173,13 @@ try {
     assert.equal(api.getSnapshot().activeId, 'orders');
     assert.equal(await api.close('orders'), 'ok');
     assert.equal(api.getSnapshot().tabs.length, 0);
+    assert.equal(api.register({ id: 'reports/2026', title: 'Reports' }), 'ok');
+    assert.equal(api.show('reports/2026'), 'ok');
+    assert.equal(api.getSnapshot().activeId, 'reports/2026');
+    assert.deepEqual(api.retainOnly(['orders']), ['reports/2026']);
+    assert.equal(api.getSnapshot().tabs.length, 0);
+    assert.equal(api.getSnapshot().activeId, undefined);
+    assert.deepEqual(api.getScreens().map(screen => screen.id), ['orders']);
   `);
   console.log('Core-only installation and packed core operations passed');
 
