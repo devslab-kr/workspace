@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- The default styles show disabled buttons as disabled: a close button that cannot close its tab (for example the lone `home` tab, `canClose(id)` false) and a switcher trigger with no open tabs get a translucent label and a `not-allowed` cursor, and no hover change. The active tab's close keeps its shared active surface and underline.
+
 ## 0.3.0
 
 - The controller keeps a live screen registry. `screens` is optional and is the starting list. New controller methods: `register(screen, { show, renew })`, `unregister(id)`, `retainOnly(ids)`, `show(id)`, `getScreen(id)`, `getTab(id)` and `canClose(id)`.
