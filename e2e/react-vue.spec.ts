@@ -141,9 +141,18 @@ for (const framework of ['react', 'vue']) {
     expect(await page.evaluate(() => (window as any).workspace.getTab('/customers').slot)).toBe(1);
     expect(await customers.getAttribute('id')).toMatch(/-tab-1$/);
     await expect(page.getByRole('button', { name: 'Close Customers', exact: true })).toBeDisabled();
+    // A close that cannot run looks disabled: not-allowed cursor and a translucent glyph colour.
+    const closeLook = () => page.getByRole('button', { name: 'Close Customers', exact: true }).evaluate(element => {
+      const style = getComputedStyle(element); const probe = document.createElement('canvas').getContext('2d')!;
+      probe.fillStyle = style.color; probe.fillRect(0, 0, 1, 1);
+      return { cursor: style.cursor, alpha: probe.getImageData(0, 0, 1, 1).data[3] };
+    });
+    expect(await closeLook()).toEqual({ cursor: 'not-allowed', alpha: expect.any(Number) });
+    expect((await closeLook()).alpha).toBeLessThan(200);
     await page.evaluate(() => (window as any).workspace.open('/orders 1 한국'));
     await expect(orders).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('button', { name: 'Close Customers', exact: true })).toBeEnabled();
+    expect(await closeLook()).toEqual({ cursor: 'pointer', alpha: 255 });
     await page.evaluate(() => { const w = window as any; w.hold = true; void w.workspace.open('/customers'); });
     await expect(customers).toHaveAttribute('aria-selected', 'true'); await expect(customers).toHaveAttribute('aria-busy', 'true');
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
