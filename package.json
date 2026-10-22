@@ -1,7 +1,7 @@
 {
   "name": "@devslab/workspace",
   "description": "Retained workspace tabs, shortcuts and screen switching with headless adapters for Solid, React, Vue and Svelte",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": false,
   "repository": {
     "type": "git",
@@ -155,5 +155,8 @@
     "solid-js": {
       "optional": true
     }
+  },
+  "dependencies": {
+    "@devslab/dds-icons": "0.28.0"
   }
 }

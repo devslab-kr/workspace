@@ -1,5 +1,40 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+
+test('Solid previews snapshot retained input without mounting another page and clean up on dismiss/select', async ({ page }) => {
+  await page.goto('/tests/fixtures/solid-headless.html?previews');
+  await page.getByLabel('Alpha draft', { exact: true }).fill('Unsent retained draft');
+  await page.getByRole('tab', { name: 'Beta', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).previewEvents.mounted)).toBe(2);
+  const trigger = page.getByRole('button', { name: 'Switch screens', exact: true });
+  await expect(trigger.locator('[data-workspace-icon="layout-grid"]')).toHaveCount(1);
+  await trigger.click();
+  const previews = page.locator('[data-workspace-part="preview"]');
+  await expect(previews).toHaveCount(2);
+  await expect(previews.locator('input')).toHaveValue('Unsent retained draft');
+  await expect(previews.first()).toHaveAttribute('inert', '');
+  expect(await page.evaluate(() => (window as any).previewEvents)).toEqual({ mounted: 2, cleaned: 0 });
+  await page.keyboard.press('Escape');
+  await expect(previews).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Alpha', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await expect(previews).toHaveCount(0);
+  await expect(page.getByLabel('Alpha draft', { exact: true })).toHaveValue('Unsent retained draft');
+  expect(await page.evaluate(() => (window as any).previewEvents)).toEqual({ mounted: 2, cleaned: 0 });
+});
+
+test('Solid preview opt-in preserves custom preview slot precedence', async ({ page }) => {
+  await page.goto('/tests/fixtures/solid-headless.html?previews&custom-preview');
+  await page.getByRole('button', { name: 'Switch screens', exact: true }).click();
+  await expect(page.getByText('Custom preview', { exact: true })).toHaveCount(2);
+  await expect(page.locator('[data-workspace-part="preview"]')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await page.goto('/tests/fixtures/solid-headless.html');
+  await page.getByRole('button', { name: 'Switch screens', exact: true }).click();
+  await expect(page.locator('[data-workspace-part="preview"]')).toHaveCount(0);
+});
 test('headless custom buttons preserve refs, events, guards and fresh instance identity', async ({ page }) => {
   await page.goto('/tests/fixtures/solid-headless.html');
   await page.addStyleTag({ content: '[data-workspace-part="panel"]{display:flex}' });

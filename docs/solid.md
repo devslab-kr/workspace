@@ -152,3 +152,26 @@ Workspace does not supply router loaders or authorization. The optional history 
 ## Verification and other adapters
 
 The project's checks cover Solid browser behavior, SSR, hydration and installed-package imports. See [verification](verification.md) for the scope, [React / Vue](react-vue.md) and [Svelte](../src/svelte/README.md) for the other adapters.
+
+
+## Retained screen previews (0.4.0)
+
+React, Vue and Solid expose the same opt-in `previews` presentation option on
+`Workspace` / `WorkspaceProvider`: `<Workspace previews ... />` (Vue:
+`<Workspace :previews="true" ... />`). Import `@devslab/workspace/style.css` for
+the default thumbnail frame, or style the `preview` part through `classNames`.
+Existing `slots.preview(screen)` content takes precedence.
+
+The switcher snapshots already mounted screen DOM when opened. It does not mount
+screen components again or run their requests. Input, select, checked and scroll
+state are copied; closing the switcher disposes snapshots and resize observers.
+Previews are inert, hidden from assistive technology, and never replace the live
+page. SSR creates no DOM snapshots. Passwords and subtrees marked
+`data-workspace-preview-private` are masked. Mark other sensitive content explicitly.
+Canvas/WebGL, iframes, video and external portals are not captured; use the custom
+preview slot when a screen needs a different representation. This is a DOM
+snapshot, not a continuously updating screenshot.
+
+The default switcher trigger uses the DDS `layout-grid` icon with an accessible
+label. Custom trigger children/default slots still override it. Core/history
+remain independent of DDS; only presentation adapters use `@devslab/dds-icons`.
