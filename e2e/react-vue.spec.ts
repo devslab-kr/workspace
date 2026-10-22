@@ -6,16 +6,20 @@ for (const framework of ['react', 'vue']) {
     await page.getByRole('textbox').fill('Alpha retained draft');
     await page.getByRole('button', { name: 'Beta', exact: true }).click();
     await page.getByRole('textbox').fill('Beta current draft');
+    const liveButtonHeight = await page.getByRole('button', { name: 'Save work', exact: true }).evaluate(element => getComputedStyle(element).minHeight);
     const trigger = page.getByRole('button', { name: 'Switch screens', exact: true }); await trigger.click();
     const dialog = page.getByRole('dialog'); await expect(dialog).toBeVisible();
     const previews = dialog.locator('[data-workspace-part="preview"]'); await expect(previews).toHaveCount(2);
     await expect(previews.nth(0).locator('input')).toHaveValue('Alpha retained draft');
     await expect(previews.nth(1).locator('input')).toHaveValue('Beta current draft');
     await expect(previews.nth(0)).toHaveAttribute('inert', '');
+    expect(await previews.nth(1).locator('button').evaluate(element => getComputedStyle(element).minHeight)).toBe(liveButtonHeight);
     expect(await page.evaluate(() => (window as any).adapterEvents.mounted)).toBe(2);
     await dialog.getByRole('button', { name: 'Alpha', exact: true }).click();
     await expect(page.getByRole('textbox')).toHaveValue('Alpha retained draft');
-    await trigger.click(); await page.keyboard.press('Escape'); await expect(trigger).toBeFocused();
+    await expect(dialog).toBeHidden(); await trigger.click();
+    await expect(dialog).toBeVisible(); await expect(dialog.getByRole('button', { name: 'Alpha', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape'); await expect(dialog).toBeHidden(); await expect(trigger).toBeFocused();
     await expect(page.locator('[data-workspace-part="preview"]')).toHaveCount(0);
   });
 
