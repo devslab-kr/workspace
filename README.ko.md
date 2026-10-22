@@ -50,7 +50,7 @@ CSS는 선택이며 `--ws-*` 변수, classNames, 콘텐츠 슬롯, unstyled로 �
 
 DDS를 사용하면 라이선스가 적용된 DDS 토큰과 `@devslab/workspace/style.css` 다음에 `@devslab/workspace/dds.css`를 불러온다. 이 선택 파일은 DDS 변수만 참조하며 DDS 자산을 포함하지 않는다. 모달이 body에 포털로 렌더되므로 테마 변수는 `:root`에 설정하거나 워크스페이스와 모달 양쪽 클래스에 설정한다. 배경·글자·선·강조·포커스·오버레이·폰트·모달 반경/그림자를 변경할 수 있다.
 
-페이지 전용 hook은 선택이다. useWorkspacePage/useActiveEffect로 활성 화면의 구독과 해제를 연결한다. 타이머·요청·캐시·앱 모달 포털은 앱이 관리한다. 라이브러리는 자동 조회, invalidate, DOM 미리보기 복제, 분석 전송을 하지 않는다. 입력창·IME·반복 키·모달에서는 단축키를 가로채지 않으며 shortcuts로 변경/해제할 수 있다.
+페이지 전용 hook은 선택이다. useWorkspacePage/useActiveEffect로 활성 화면의 구독과 해제를 연결한다. 타이머·요청·캐시·앱 모달 포털은 앱이 관리한다. 라이브러리는 자동 조회, invalidate, 분석 전송을 하지 않는다. React·Vue·Solid는 previews 옵션으로 열린 화면의 DOM 미리보기를 사용할 수 있고 slots.preview로 직접 지정할 수도 있다. 입력창·IME·반복 키·모달에서는 단축키를 가로채지 않으며 shortcuts로 변경/해제할 수 있다.
 
 기본 화면은 mount 후 열어 SSR은 빈 상태로 시작한다. 서버에서 현재 탭이 필요하면 요청별 컨트롤러를 먼저 열고 SSR에 전달한다(등록 규칙은 아래 런타임 화면 등록 참고). dir를 지정하면 서버에서도 올바른 RTL이 된다. Next/Nuxt/SvelteKit 통합은 검증했다고 주장하지 않는다.
 
@@ -105,3 +105,26 @@ controller.retainOnly(allowedIds);
 ## 라이선스
 
 [Apache-2.0](LICENSE) © [DevsLab](https://devslab.kr/).
+
+
+## Retained screen previews (0.4.0)
+
+React, Vue and Solid expose the same opt-in `previews` presentation option on
+`Workspace` / `WorkspaceProvider`: `<Workspace previews ... />` (Vue:
+`<Workspace :previews="true" ... />`). Import `@devslab/workspace/style.css` for
+the default thumbnail frame, or style the `preview` part through `classNames`.
+Existing `slots.preview(screen)` content takes precedence.
+
+The switcher snapshots already mounted screen DOM when opened. It does not mount
+screen components again or run their requests. Input, select, checked and scroll
+state are copied; closing the switcher disposes snapshots and resize observers.
+Previews are inert, hidden from assistive technology, and never replace the live
+page. SSR creates no DOM snapshots. Passwords and subtrees marked
+`data-workspace-preview-private` are masked. Mark other sensitive content explicitly.
+Canvas/WebGL, iframes, video and external portals are not captured; use the custom
+preview slot when a screen needs a different representation. This is a DOM
+snapshot, not a continuously updating screenshot.
+
+The default switcher trigger uses the DDS `layout-grid` icon with an accessible
+label. Custom trigger children/default slots still override it. Core/history
+remain independent of DDS; only presentation adapters use `@devslab/dds-icons`.

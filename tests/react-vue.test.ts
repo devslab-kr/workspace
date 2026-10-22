@@ -3,11 +3,30 @@ import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { createSSRApp, defineComponent, h } from 'vue';
 import { renderToString as renderVue } from '@vue/server-renderer';
-import { Workspace as ReactWorkspace } from '../src/react';
+import { Workspace as ReactWorkspace, WorkspaceProvider as ReactProvider, WorkspaceSwitcherTrigger as ReactTrigger } from '../src/react';
 import { Workspace as VueWorkspace, WorkspaceProvider as VueProvider, WorkspaceTabList as VueTabList, WorkspacePanels as VuePanels, useWorkspace as useVueWorkspace, type AdapterScreen as VueAdapterScreen } from '../src/vue';
 import { createWorkspace } from '../src/core';
 
 describe('native adapter SSR', () => {
+  it('React previews are SSR safe and the default icon keeps an accessible name', async () => {
+    let mounted = 0;
+    const component = () => { mounted++; return createElement('p', null, 'Retained page'); };
+    const controller = createWorkspace({ screens: [{ id: 'a', title: 'Alpha', component }] });
+    await controller.open('a');
+    const output = renderToString(createElement(ReactWorkspace, { controller, previews: true }));
+    expect(mounted).toBe(1);
+    expect(output).toContain('aria-label="Switch screens"');
+    expect(output).toContain('data-workspace-icon="layout-grid"');
+    expect(output).not.toContain('data-workspace-part="preview"');
+    const custom = renderToString(createElement(ReactProvider, { controller }, createElement(ReactTrigger, null, 'My switcher')));
+    expect(custom).toContain('My switcher');
+    expect(custom).not.toContain('data-workspace-icon');
+    expect(custom).not.toContain('aria-label="Switch screens"');
+    expect(custom).not.toContain('title="Switch screens"');
+    const named = renderToString(createElement(ReactProvider, { controller }, createElement(ReactTrigger, { 'aria-label': 'My workspaces', title: 'Custom tooltip' })));
+    expect(named).toContain('aria-label="My workspaces"');
+    expect(named).toContain('title="Custom tooltip"');
+  });
   it('React does not mount unvisited/default pages on the server', () => {
     const component = () => createElement('p', null, 'PAGE INSTANCE');
     const output = renderToString(createElement(ReactWorkspace, { screens: [{ id: 'a', title: 'Alpha', component }], defaultScreen: 'a' }));

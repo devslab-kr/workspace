@@ -5,6 +5,8 @@ import { ark } from '@ark-ui/solid/factory';
 import { Dynamic, Portal } from 'solid-js/web';
 import { createContext, createEffect, createSignal, createUniqueId, For, mergeProps, onCleanup, onMount, Show, splitProps, untrack, useContext, type Accessor, type Component, type JSX } from 'solid-js';
 import { createWorkspace, type Options, type Result, type Screen, type Snapshot, type Tab, type WorkspaceController } from './core';
+import { mountRetainedPreview } from './retained-preview';
+import { switcherIcon } from './switcher-icon';
 
 export interface WorkspaceScreen extends Screen { component: Component; }
 /** A controller definition: its component is optional when the `screens` prop supplies it under the same id (0.2.0 style). */
@@ -28,12 +30,14 @@ const defaults: WorkspaceLabels = {
   dismiss: 'Close switcher', empty: 'Choose a screen', limit: 'Maximum open screens reached',
   denied: 'Screen transition cancelled', error: 'Screen transition failed',
 };
-export type WorkspacePart = 'root' | 'menu' | 'toolbar' | 'tabs' | 'tab' | 'close' | 'pending' | 'panel' | 'status' | 'overlay' | 'positioner' | 'switcher' | 'choices';
+export type WorkspacePart = 'root' | 'menu' | 'toolbar' | 'tabs' | 'tab' | 'close' | 'pending' | 'panel' | 'status' | 'overlay' | 'positioner' | 'switcher' | 'choices' | 'preview';
 export interface WorkspacePresentation {
   /** Starting screens (standalone), or components looked up by id for a controller whose definitions carry none. Read once. */
   screens?: readonly WorkspaceScreen[]; menus?: readonly WorkspaceMenu[]; menu?: boolean;
   children?: JSX.Element; class?: string; dir?: 'ltr' | 'rtl'; labels?: Partial<WorkspaceLabels>;
   shortcuts?: boolean | { switcher?: string | false; slots?: readonly (string | false)[] };
+  /** Show inert thumbnails of retained panels in the switcher. A preview slot takes precedence. */
+  previews?: boolean;
   unstyled?: boolean; classNames?: Partial<Record<WorkspacePart, string>>;
   onResult?: (result: Result) => void; onError?: (error: unknown) => void;
   slots?: {
@@ -54,7 +58,7 @@ interface WorkspaceContext {
   run: (task: Promise<Result>, focus?: boolean) => Promise<Result | undefined>;
   status: Accessor<string>; cls: (part: WorkspacePart) => string | undefined;
   root: () => HTMLDivElement; opener: () => HTMLElement | undefined;
-  showSwitcher: () => void; prefix: string;
+  showSwitcher: () => void; prefix: string; panels: Map<number, HTMLElement>;
 }
 const Context = createContext<WorkspaceContext>();
 function useParts() { const value = useContext(Context); if (!value) throw new Error('Workspace parts require WorkspaceProvider'); return value; }
@@ -81,6 +85,7 @@ export function WorkspaceProvider(props: WorkspaceProps) {
   const prefix = `ws-${createUniqueId()}`; const labels = () => ({ ...defaults, ...props.labels });
   const cls = (part: WorkspacePart) => [props.unstyled ? '' : part === 'root' ? 'workspace' : `workspace-${part}`, props.classNames?.[part]].filter(Boolean).join(' ') || undefined;
   let root!: HTMLDivElement; let opener: HTMLElement | undefined; let composing = false;
+  const panels = new Map<number, HTMLElement>();
   /** Puts keyboard focus back on the tab list, unless the user has already moved into the shown page (or, if onlyIfLost, anywhere). */
   function restoreFocus(onlyIfLost = false) {
     const focused = document.activeElement;
@@ -124,7 +129,7 @@ export function WorkspaceProvider(props: WorkspaceProps) {
   }
   const title = (id: string) => state().screens.find(screen => screen.id === id)?.title ?? props.screens?.find(screen => screen.id === id)?.title ?? id;
   const slot = (id: string) => state().tabs.find(tab => tab.id === id)?.slot ?? 0;
-  const context: WorkspaceContext = { api, state, props, screen, title, labels, run, status, cls, root: () => root, opener: () => opener, showSwitcher, prefix };
+  const context: WorkspaceContext = { api, state, props, screen, title, labels, run, status, cls, root: () => root, opener: () => opener, showSwitcher, prefix, panels };
   return <Context.Provider value={context}><LocaleProvider locale={(props.dir ?? direction()) === 'rtl' ? 'ar' : 'en'}>
     <Tabs.Root ref={root} id={prefix} ids={{ trigger: id => `${prefix}-tab-${slot(id)}`, content: id => `${prefix}-panel-${slot(id)}` }} dir={props.dir ?? direction()} value={state().activeId ?? ''} activationMode="manual" onValueChange={details => void run(api.select(details.value))}
       lazyMount={false} unmountOnExit={false} data-workspace-part="root" class={[cls('root'), props.class].filter(Boolean).join(' ')}>{props.children}</Tabs.Root>
@@ -175,15 +180,27 @@ export function WorkspacePanels() {
   // Each tab object is one page instance: its component is read once, untracked, so a re-registration never remounts it.
   const c = useParts(); return <><For each={c.state().tabs}>{tab => {
     const component = untrack(() => c.screen(tab.id)?.component);
+    onCleanup(() => c.panels.delete(tab.instance));
     return <PageContext.Provider value={{ id: tab.id, active: () => c.state().activeId === tab.id, data: tab.data, screen: () => c.screen(tab.id) }}>
-      <Tabs.Content value={tab.id} data-workspace-part="panel" class={c.cls('panel')} hidden={c.state().activeId !== tab.id} inert={c.state().activeId !== tab.id} style={{ display: c.state().activeId === tab.id ? undefined : 'none' }}>{component && <Dynamic component={component} />}</Tabs.Content>
+      <Tabs.Content ref={element => c.panels.set(tab.instance, element)} value={tab.id} data-workspace-part="panel" class={c.cls('panel')} hidden={c.state().activeId !== tab.id} inert={c.state().activeId !== tab.id} style={{ display: c.state().activeId === tab.id ? undefined : 'none' }}>{component && <Dynamic component={component} />}</Tabs.Content>
     </PageContext.Provider>;
   }}</For><Show when={!c.state().activeId}>{c.props.slots?.empty?.() ?? <p>{c.labels().empty}</p>}</Show></>;
 }
 export function WorkspaceStatus() { const c = useParts(); return <div hidden={c.state().switcherOpen} role="status" aria-live="polite" data-workspace-part="status" class={c.cls('status')}>{c.status()}</div>; }
 export function WorkspaceSwitcherTrigger(props: ButtonPartProps) {
   const [local, rest] = splitProps(props, ['children', 'onClick', 'asChild']);
-  const c = useParts(); return <ark.button {...rest} type="button" asChild={childAdapter(local.asChild, props.ref)} aria-haspopup="dialog" disabled={!c.state().tabs.length || props.disabled} data-workspace-part="switcher-trigger" onClick={event => { callHandler(local.onClick, event); if (!event.defaultPrevented) c.showSwitcher(); }}>{local.children ?? c.labels().switcher}</ark.button>;
+  const c = useParts(); return <ark.button aria-label={local.children == null ? c.labels().switcher : undefined} title={local.children == null ? c.labels().switcher : undefined} {...rest} type="button" asChild={childAdapter(local.asChild, props.ref)} aria-haspopup="dialog" disabled={!c.state().tabs.length || props.disabled} data-workspace-part="switcher-trigger" onClick={event => { callHandler(local.onClick, event); if (!event.defaultPrevented) c.showSwitcher(); }}><Show when={local.children != null} fallback={<svg width="20" height="20" viewBox={switcherIcon.viewBox} fill="none" stroke="currentColor" stroke-width={switcherIcon.strokeWidth} stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-workspace-icon="layout-grid" innerHTML={switcherIcon.body} />}>{local.children}</Show></ark.button>;
+}
+/** Thumbnail ownership follows the dialog, never the retained page lifecycle. */
+function RetainedPreview(props: { tab: Tab<unknown> }) {
+  const c = useParts(); let host!: HTMLDivElement;
+  createEffect(() => {
+    if (!c.state().switcherOpen) return;
+    const bounds = c.root()?.getBoundingClientRect();
+    const cleanup = mountRetainedPreview(host, c.panels.get(props.tab.instance) ?? null, { sourceWidth: bounds?.width, sourceHeight: bounds?.height });
+    onCleanup(cleanup);
+  });
+  return <div ref={host} class={c.cls('preview')} data-workspace-part="preview" aria-hidden="true" inert />;
 }
 export function WorkspaceSwitcher(props: { children?: JSX.Element }) {
   const c = useParts(); return <Dialog.Root id={`${c.prefix}-switcher`} open={c.state().switcherOpen} onOpenChange={details => details.open ? c.api.showSwitcher() : c.api.hideSwitcher()}
@@ -201,7 +218,7 @@ export function WorkspaceSwitcher(props: { children?: JSX.Element }) {
         if (next >= 0) { event.preventDefault(); items[next]?.focus(); }
       }}><For each={c.state().tabs}>{tab => <button type="button" data-workspace-choice id={`${c.prefix}-choice-${tab.slot}`} aria-current={c.state().activeId === tab.id ? 'true' : undefined}
         onClick={() => void c.run(c.api.select(tab.id)).then(result => { if (result === 'ok') c.api.hideSwitcher(); })}>
-        <Show when={c.props.slots?.preview && c.screen(tab.id)}>{screen => <div aria-hidden="true" inert>{c.props.slots!.preview!(screen())}</div>}</Show>
+        <Show when={c.props.slots?.preview && c.screen(tab.id)} fallback={<Show when={c.props.previews && c.state().switcherOpen}><RetainedPreview tab={tab} /></Show>}>{screen => <div aria-hidden="true" inert>{c.props.slots!.preview!(screen())}</div>}</Show>
         {(() => { const screen = c.screen(tab.id); return (screen && c.props.slots?.switcherItem?.(screen, tab)) ?? c.title(tab.id); })()}
       </button>}</For></div>}
       <Dialog.CloseTrigger>{c.labels().dismiss}</Dialog.CloseTrigger>

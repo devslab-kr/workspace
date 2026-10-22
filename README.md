@@ -123,7 +123,7 @@ For DDS styling, load your licensed DDS tokens and `@devslab/workspace/style.css
 
 Compose `WorkspaceTab` and `WorkspaceCloseButton` for custom tab strips. Keep close controls outside the element with `role="tablist"`. `asChild` supports existing buttons with merged events/ref; `preventDefault()` cancels the Workspace action. Solid receives native attributes in its callback; React/Vue use their native Ark composition convention, Svelte uses a snippet and bindable `ref`.
 
-Pages can optionally use `useWorkspacePage()` and `useActiveEffect()` to run app subscriptions only while active. React uses dependency arrays, Vue uses reactive refs, Solid uses accessors, Svelte uses getter/runes. Inactive page portals must consult page activity. Workspace never refetches, invalidates, clones page DOM, or transmits analytics. Supply static previews through `slots.preview` if useful.
+Pages can optionally use `useWorkspacePage()` and `useActiveEffect()` to run app subscriptions only while active. React uses dependency arrays, Vue uses reactive refs, Solid uses accessors, Svelte uses getter/runes. Inactive page portals must consult page activity. Workspace never refetches, invalidates, or transmits analytics. React, Vue and Solid can opt into retained DOM snapshots with `previews`; custom static previews remain available through `slots.preview`.
 
 Shortcuts skip editable elements, IME composition, repeat events and app dialogs. They apply only to events originating in the workspace. Disable with `shortcuts={false}` or configure `shortcuts={{switcher:'Ctrl+q',slots:['Alt+1','Alt+2']}}`. Set `dir` explicitly for SSR RTL; otherwise adapters inherit ambient direction after mount.
 
@@ -169,3 +169,26 @@ Issues and PRs are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, ve
 ## License
 
 [Apache-2.0](LICENSE) © [DevsLab](https://devslab.kr/).
+
+
+## Retained screen previews (0.4.0)
+
+React, Vue and Solid expose the same opt-in `previews` presentation option on
+`Workspace` / `WorkspaceProvider`: `<Workspace previews ... />` (Vue:
+`<Workspace :previews="true" ... />`). Import `@devslab/workspace/style.css` for
+the default thumbnail frame, or style the `preview` part through `classNames`.
+Existing `slots.preview(screen)` content takes precedence.
+
+The switcher snapshots already mounted screen DOM when opened. It does not mount
+screen components again or run their requests. Input, select, checked and scroll
+state are copied; closing the switcher disposes snapshots and resize observers.
+Previews are inert, hidden from assistive technology, and never replace the live
+page. SSR creates no DOM snapshots. Passwords and subtrees marked
+`data-workspace-preview-private` are masked. Mark other sensitive content explicitly.
+Canvas/WebGL, iframes, video and external portals are not captured; use the custom
+preview slot when a screen needs a different representation. This is a DOM
+snapshot, not a continuously updating screenshot.
+
+The default switcher trigger uses the DDS `layout-grid` icon with an accessible
+label. Custom trigger children/default slots still override it. Core/history
+remain independent of DDS; only presentation adapters use `@devslab/dds-icons`.

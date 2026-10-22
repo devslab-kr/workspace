@@ -1,6 +1,24 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 for (const framework of ['react', 'vue']) {
+  test(`${framework}: actual previews preserve drafts without mounting pages twice`, async ({ page }) => {
+    await page.goto(`/tests/fixtures/react-vue.html?framework=${framework}&previews`);
+    await page.getByRole('textbox').fill('Alpha retained draft');
+    await page.getByRole('button', { name: 'Beta', exact: true }).click();
+    await page.getByRole('textbox').fill('Beta current draft');
+    const trigger = page.getByRole('button', { name: 'Switch screens', exact: true }); await trigger.click();
+    const dialog = page.getByRole('dialog'); await expect(dialog).toBeVisible();
+    const previews = dialog.locator('[data-workspace-part="preview"]'); await expect(previews).toHaveCount(2);
+    await expect(previews.nth(0).locator('input')).toHaveValue('Alpha retained draft');
+    await expect(previews.nth(1).locator('input')).toHaveValue('Beta current draft');
+    await expect(previews.nth(0)).toHaveAttribute('inert', '');
+    expect(await page.evaluate(() => (window as any).adapterEvents.mounted)).toBe(2);
+    await dialog.getByRole('button', { name: 'Alpha', exact: true }).click();
+    await expect(page.getByRole('textbox')).toHaveValue('Alpha retained draft');
+    await trigger.click(); await page.keyboard.press('Escape'); await expect(trigger).toBeFocused();
+    await expect(page.locator('[data-workspace-part="preview"]')).toHaveCount(0);
+  });
+
   test(`${framework}: retains instances, suspends active effects, unmounts closed pages`, async ({ page }) => {
     const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
     await page.goto(`/tests/fixtures/react-vue.html?framework=${framework}`);

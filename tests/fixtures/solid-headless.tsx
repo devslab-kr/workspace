@@ -26,12 +26,13 @@ if (new URLSearchParams(location.search).has('dynamic')) {
   render(() => <><h1>Dynamic Solid</h1><Workspace controller={api} screens={[]} slots={{ pendingTab: id => <>Opening {id}</> }} /></>, document.getElementById('app')!);
 } else {
 const harness = { deny: false, pending: false, protect: false, resolve: undefined as undefined | ((value: boolean) => void), refs: {} as Record<string, HTMLButtonElement>, keys: 0, clicks: 0 };
-function Alpha() { return <label>Alpha draft<input aria-label="Alpha draft" /></label>; }
-function Beta() { return <h2>Beta page</h2>; }
+const events = { mounted: 0, cleaned: 0 };
+function Alpha() { onMount(() => events.mounted++); onCleanup(() => events.cleaned++); return <label>Alpha draft<input aria-label="Alpha draft" /></label>; }
+function Beta() { onMount(() => events.mounted++); onCleanup(() => events.cleaned++); return <h2>Beta page</h2>; }
 const screens = [{ id: 'a', title: 'Alpha', component: Alpha }, { id: 'b', title: 'Beta', component: Beta }];
 const api = createWorkspace({ screens, beforeActivate: id => id === 'b' ? harness.pending ? new Promise<boolean>(resolve => { harness.resolve = resolve; }) : !harness.deny : true });
 await api.open('a'); await api.open('b'); await api.select('a');
-Object.assign(window, { harness, workspace: api });
+Object.assign(window, { harness, workspace: api, previewEvents: events });
 function Parts() {
   const state = useWorkspaceState();
   return <><h1>Headless Solid</h1><WorkspaceTabList><For each={state().tabs}>{tab => <WorkspaceTab id={tab.id} class="custom-tab" ref={element => { harness.refs[tab.id] = element; }}
@@ -39,9 +40,10 @@ function Parts() {
     asChild={attrs => <button {...attrs} data-custom-tab={tab.id}>{tab.id === 'a' ? 'Alpha' : 'Beta'}</button>} />}</For></WorkspaceTabList>
     <For each={state().tabs}>{tab => <WorkspaceCloseButton id={tab.id} ref={element => { harness.refs[`close-${tab.id}`] = element; }} onClick={event => { harness.clicks++; if (harness.protect) event.preventDefault(); }}
       asChild={attrs => <button {...attrs} data-custom-close={tab.id}>Close {tab.id === 'a' ? 'Alpha' : 'Beta'}</button>} />}</For>
-    <WorkspaceSwitcherTrigger ref={element => { harness.refs.switcher = element; }} onClick={() => { harness.clicks++; }} asChild={attrs => <button {...attrs}>Switch screens</button>} />
+    {params.has('previews') ? <WorkspaceSwitcherTrigger /> : <WorkspaceSwitcherTrigger ref={element => { harness.refs.switcher = element; }} onClick={() => { harness.clicks++; }} asChild={attrs => <button {...attrs}>Switch screens</button>} />}
     <WorkspaceStatus /><WorkspacePanels /><WorkspaceSwitcher />
   </>;
 }
-render(() => <WorkspaceProvider controller={api} screens={screens} unstyled><Parts /></WorkspaceProvider>, document.getElementById('app')!);
+const params = new URLSearchParams(location.search);
+render(() => <WorkspaceProvider controller={api} screens={screens} unstyled previews={params.has('previews')} slots={params.has('custom-preview') ? { preview: () => <span>Custom preview</span> } : undefined}><Parts /></WorkspaceProvider>, document.getElementById('app')!);
 }

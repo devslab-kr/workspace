@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- React, Vue and Solid add opt-in `previews` to show actual retained screen DOM in the switcher without remounting pages. Custom preview slots keep precedence.
+- Snapshots preserve form and scroll state, mask passwords/private subtrees, remain inert, and release resize observers on dismissal. SSR remains DOM-free.
+- Default switcher triggers across adapters use the shared DDS four-square icon, preserving accessible names and custom trigger content. Core/history have no DDS dependency.
+
+
 ## 0.3.1
 
 - The default styles show disabled buttons as disabled: a close button that cannot close its tab (for example the lone `home` tab, `canClose(id)` false) and a switcher trigger with no open tabs get a translucent label and a `not-allowed` cursor, and no hover change. The active tab's close keeps its shared active surface and underline.
